@@ -6,7 +6,7 @@ import { TChart } from '../js/visualizer'
 export default function Graph() {
     const containerRef = useRef(null)
     const chartRef = useRef(null)
-    const { historicalData, predictionData, timespan, drawMovingAverage, isLoading, loadingMessage, currentSymbol, error, registerChart } = useAppState()
+    const { historicalData, predictionData, timespan, drawMovingAverage, drawExponentialMovingAverage, chartMode, isLoading, loadingMessage, currentSymbol, error, registerChart } = useAppState()
 
     // Initialize chart on mount
     useEffect(() => {
@@ -16,12 +16,12 @@ export default function Graph() {
         }
     }, [registerChart])
 
-    // Update history when data changes
+    // Update history when data changes or chart mode changes
     useEffect(() => {
         if (chartRef.current) {
-            chartRef.current.renderHistory(historicalData, timespan, drawMovingAverage)
+            chartRef.current.renderHistory(historicalData, timespan, drawMovingAverage, chartMode, drawExponentialMovingAverage)
         }
-    }, [historicalData, timespan, drawMovingAverage])
+    }, [historicalData, timespan, drawMovingAverage, drawExponentialMovingAverage, chartMode])
 
     // Animate prediction when it arrives
     useEffect(() => {

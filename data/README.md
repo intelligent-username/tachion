@@ -165,7 +165,7 @@ Crypto is very heteroskedastic so log returns are mandatory.
 **Lagged covariates (`target_lagged`)**
 
 - `log_return_{t-1}`
-- `volume_change`: (\log(\text{volume}*t / \text{volume}*{t-1}))
+- `volume_change`: $\log(\frac{\text{volume}_t} {\text{volume}_{t-1}})$
 - `5_period_MA`
 - `20_period_MA`
 - `rolling_volatility_5`

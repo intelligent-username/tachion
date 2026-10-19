@@ -141,6 +141,23 @@ function computeAdaptiveMovingAverage(values, windowSize) {
     return out
 }
 
+function computeExponentialMovingAverage(values, period = 20) {
+    if (!values.length) return []
+    const out = new Array(values.length)
+    const multiplier = 2 / (period + 1)
+    
+    // Seed with initial price
+    let prevEma = values[0]
+    out[0] = prevEma
+
+    for (let i = 1; i < values.length; i++) {
+        prevEma = (values[i] - prevEma) * multiplier + prevEma
+        out[i] = prevEma
+    }
+
+    return out
+}
+
 export class TChart {
     constructor(container) {
         this.container = container
@@ -148,6 +165,7 @@ export class TChart {
         this.currentData = []
         this.lastTimespan = 'max'
         this.showMovingAverage = false
+        this.chartMode = 'bars' // 'bars' | 'line'
         this.upColor = '#27ae60'
         this.downColor = '#e74c3c'
 
@@ -161,6 +179,18 @@ export class TChart {
             .attr('width', '100%')
             .attr('height', '100%')
             .attr('preserveAspectRatio', 'none')
+
+        // Gradient definitions for stock price area chart
+        this.defs = this.rootSvg.append('defs')
+        
+        // Neutral gradient for stock price area chart
+        const neutralGrad = this.defs.append('linearGradient')
+            .attr('id', 'price-area-gradient-neutral')
+            .attr('x1', '0%').attr('y1', '0%')
+            .attr('x2', '0%').attr('y2', '100%')
+        neutralGrad.append('stop').attr('offset', '0%').attr('stop-color', 'rgba(238, 238, 238, 0.95)').attr('stop-opacity', 0.22)
+        neutralGrad.append('stop').attr('offset', '80%').attr('stop-color', 'rgba(238, 238, 238, 0.95)').attr('stop-opacity', 0.04)
+        neutralGrad.append('stop').attr('offset', '100%').attr('stop-color', 'rgba(238, 238, 238, 0.95)').attr('stop-opacity', 0)
 
         this.svg = this.rootSvg.append('g')
             .attr('transform', `translate(${this.margin.left},${this.margin.top})`)
@@ -176,7 +206,31 @@ export class TChart {
 
         this.gridLayer = this.svg.append('g').attr('class', 'grid-layer')
         this.candleLayer = this.svg.append('g').attr('class', 'candle-layer')
+        this.priceAreaLayer = this.svg.append('g').attr('class', 'price-area-layer')
         this.overlayLayer = this.svg.append('g').attr('class', 'overlay-layer')
+
+        // Stock Price Mode Line and Area paths
+        this.priceArea = this.priceAreaLayer.append('path')
+            .attr('class', 'stock-price-area')
+            .attr('fill', 'url(#price-area-gradient-up)')
+            .attr('opacity', 0)
+
+        this.priceLine = this.priceAreaLayer.append('path')
+            .attr('class', 'stock-price-line')
+            .attr('fill', 'none')
+            .attr('stroke', '#27ae60')
+            .attr('stroke-width', 2.2)
+            .attr('stroke-linejoin', 'round')
+            .attr('stroke-linecap', 'round')
+            .attr('opacity', 0)
+
+        this.priceHoverDot = this.priceAreaLayer.append('circle')
+            .attr('class', 'stock-price-dot')
+            .attr('r', 5)
+            .attr('fill', '#27ae60')
+            .attr('stroke', '#ffffff')
+            .attr('stroke-width', 2)
+            .attr('opacity', 0)
 
         this.xAxis = this.overlayLayer.append('g')
             .attr('class', 'x-axis')
@@ -218,6 +272,13 @@ export class TChart {
             .attr('class', 'moving-average-line')
             .attr('fill', 'none')
             .attr('stroke', 'rgba(241, 196, 15, 0.95)')
+            .attr('stroke-width', 1.8)
+            .attr('opacity', 0)
+
+        this.exponentialMovingAverageLine = this.overlayLayer.append('path')
+            .attr('class', 'exponential-moving-average-line')
+            .attr('fill', 'none')
+            .attr('stroke', 'rgba(0, 210, 255, 0.95)')
             .attr('stroke-width', 1.8)
             .attr('opacity', 0)
 
@@ -272,7 +333,7 @@ export class TChart {
     }
 
     // Render historical candles from backend OHLCV (30m expected)
-    renderHistory(data, timespan = 'max', showMovingAverage = false) {
+    renderHistory(data, timespan = 'max', showMovingAverage = false, chartMode = 'bars', showExponentialMovingAverage = false) {
         const rawRows = clampRowsByTimespan(data ?? [], timespan)
         let previousClose = null
         const normalized = rawRows
@@ -286,8 +347,18 @@ export class TChart {
 
         this.lastTimespan = timespan
         this.showMovingAverage = !!showMovingAverage
+        this.showExponentialMovingAverage = !!showExponentialMovingAverage
+        this.chartMode = chartMode
         this.currentData = clampCandlesByTimespan(normalized, timespan)
         this.drawCandles(this.currentData)
+    }
+
+    setChartMode(mode) {
+        if (mode === this.chartMode) return
+        this.chartMode = mode
+        if (this.currentData.length) {
+            this.drawCandles(this.currentData)
+        }
     }
 
     drawCandles(candles) {
@@ -435,41 +506,84 @@ export class TChart {
         this.gridLayer.selectAll('line').attr('stroke', 'rgba(255,255,255,0.08)')
         this.gridLayer.selectAll('path').attr('stroke', 'transparent')
 
-        const minSpacingPx = indexedCandles.length > 1
-            ? this.width / (indexedCandles.length - 1)
-            : this.width
-        const bodyWidth = Math.max(2, Math.min(14, (minSpacingPx || this.width) * 0.7))
+        const isLineMode = this.chartMode === 'line'
 
-        const candle = this.candleLayer
-            .selectAll('g.candle')
-            .data(indexedCandles, d => `${d.date.toISOString()}:${d._i}`)
+        if (isLineMode) {
+            // Hide candlestick elements in stock price mode
+            this.candleLayer.selectAll('g.candle').remove()
 
-        candle.exit().remove()
+            // Draw with a sleek neutral color and gradient
+            const neutralColor = 'rgba(238, 238, 238, 0.9)'
+            const gradId = 'url(#price-area-gradient-neutral)'
 
-        const candleEnter = candle.enter()
-            .append('g')
-            .attr('class', 'candle')
+            const lineGenerator = d3.line()
+                .x(d => this.xScale(d._i))
+                .y(d => this.yScale(d.close))
+                .curve(indexedCandles.length > 80 ? d3.curveMonotoneX : d3.curveCatmullRom.alpha(0.5))
 
-        candleEnter.append('line').attr('class', 'wick')
-        candleEnter.append('rect').attr('class', 'body')
+            const areaGenerator = d3.area()
+                .x(d => this.xScale(d._i))
+                .y0(this.height)
+                .y1(d => this.yScale(d.close))
+                .curve(indexedCandles.length > 80 ? d3.curveMonotoneX : d3.curveCatmullRom.alpha(0.5))
 
-        const merged = candleEnter.merge(candle)
+            this.priceArea
+                .datum(indexedCandles)
+                .attr('d', areaGenerator)
+                .attr('fill', gradId)
+                .attr('opacity', 1)
 
-        merged.select('line.wick')
-            .attr('x1', d => this.xScale(d._i))
-            .attr('x2', d => this.xScale(d._i))
-            .attr('y1', d => this.yScale(d.high))
-            .attr('y2', d => this.yScale(d.low))
-            .attr('stroke-width', 1)
-            .attr('stroke', d => (d.close >= d.open ? this.upColor : this.downColor))
+            this.priceLine
+                .datum(indexedCandles)
+                .attr('d', lineGenerator)
+                .attr('stroke', neutralColor)
+                .attr('opacity', 1)
 
-        merged.select('rect.body')
-            .attr('x', d => this.xScale(d._i) - bodyWidth / 2)
-            .attr('width', bodyWidth)
-            .attr('y', d => this.yScale(Math.max(d.open, d.close)))
-            .attr('height', d => Math.max(1, Math.abs(this.yScale(d.open) - this.yScale(d.close))))
-            .attr('fill', d => (d.close >= d.open ? this.upColor : this.downColor))
-            .attr('opacity', 0.95)
+            this.priceHoverDot
+                .attr('fill', neutralColor)
+                .attr('opacity', 0)
+        } else {
+            // Bars / Candlestick mode: hide price line & area
+            this.priceArea.attr('opacity', 0)
+            this.priceLine.attr('opacity', 0)
+            this.priceHoverDot.attr('opacity', 0)
+
+            const minSpacingPx = indexedCandles.length > 1
+                ? this.width / (indexedCandles.length - 1)
+                : this.width
+            const bodyWidth = Math.max(2, Math.min(14, (minSpacingPx || this.width) * 0.7))
+
+            const candle = this.candleLayer
+                .selectAll('g.candle')
+                .data(indexedCandles, d => `${d.date.toISOString()}:${d._i}`)
+
+            candle.exit().remove()
+
+            const candleEnter = candle.enter()
+                .append('g')
+                .attr('class', 'candle')
+
+            candleEnter.append('line').attr('class', 'wick')
+            candleEnter.append('rect').attr('class', 'body')
+
+            const merged = candleEnter.merge(candle)
+
+            merged.select('line.wick')
+                .attr('x1', d => this.xScale(d._i))
+                .attr('x2', d => this.xScale(d._i))
+                .attr('y1', d => this.yScale(d.high))
+                .attr('y2', d => this.yScale(d.low))
+                .attr('stroke-width', 1)
+                .attr('stroke', d => (d.close >= d.open ? this.upColor : this.downColor))
+
+            merged.select('rect.body')
+                .attr('x', d => this.xScale(d._i) - bodyWidth / 2)
+                .attr('width', bodyWidth)
+                .attr('y', d => this.yScale(Math.max(d.open, d.close)))
+                .attr('height', d => Math.max(1, Math.abs(this.yScale(d.open) - this.yScale(d.close))))
+                .attr('fill', d => (d.close >= d.open ? this.upColor : this.downColor))
+                .attr('opacity', 0.95)
+        }
 
         if (this.showMovingAverage && indexedCandles.length > 0) {
             const maWindow = 30
@@ -487,6 +601,24 @@ export class TChart {
                 .attr('opacity', 1)
         } else {
             this.movingAverageLine.attr('opacity', 0)
+        }
+
+        if (this.showExponentialMovingAverage && indexedCandles.length > 0) {
+            const emaPeriod = 20
+            const closes = indexedCandles.map(d => d.close)
+            const emaValues = computeExponentialMovingAverage(closes, emaPeriod)
+            const emaPoints = indexedCandles.map((d, i) => ({ x: d._i, y: emaValues[i] }))
+
+            const emaLine = d3.line()
+                .x(d => this.xScale(d.x))
+                .y(d => this.yScale(d.y))
+
+            this.exponentialMovingAverageLine
+                .datum(emaPoints)
+                .attr('d', emaLine)
+                .attr('opacity', 1)
+        } else {
+            this.exponentialMovingAverageLine.attr('opacity', 0)
         }
 
         this.predictionLine.attr('opacity', 0)
@@ -519,19 +651,42 @@ export class TChart {
                 if (!d) return
 
                 const cx = this.xScale(d._i)
+                const cy = this.yScale(d.close)
 
                 this.hoverLine
                     .attr('x1', cx)
                     .attr('x2', cx)
                     .attr('opacity', 1)
 
+                if (this.chartMode === 'line') {
+                    this.priceHoverDot
+                        .attr('cx', cx)
+                        .attr('cy', cy)
+                        .attr('opacity', 1)
+                } else {
+                    this.priceHoverDot.attr('opacity', 0)
+                }
+
                 const dateLabel = d3.timeFormat('%Y-%m-%d %H:%M')(d.date)
-                this.tooltip
-                    .html(
+                
+                let tooltipContent = ''
+                if (this.chartMode === 'line') {
+                    tooltipContent = 
                         `<div><strong>Time:</strong> ${dateLabel}</div>` +
-                        `<div><strong>Price (close):</strong> ${this._formatPrice(d.close)}</div>` +
+                        `<div><strong>Price:</strong> ${this._formatPrice(d.close)}</div>` +
                         `<div><strong>Volume:</strong> ${this._formatVolume(d.volume)}</div>`
-                    )
+                } else {
+                    tooltipContent = 
+                        `<div><strong>Time:</strong> ${dateLabel}</div>` +
+                        `<div><strong>Open:</strong> ${this._formatPrice(d.open)}</div>` +
+                        `<div><strong>High:</strong> ${this._formatPrice(d.high)}</div>` +
+                        `<div><strong>Low:</strong> ${this._formatPrice(d.low)}</div>` +
+                        `<div><strong>Close:</strong> ${this._formatPrice(d.close)}</div>` +
+                        `<div><strong>Volume:</strong> ${this._formatVolume(d.volume)}</div>`
+                }
+
+                this.tooltip
+                    .html(tooltipContent)
                     .style('opacity', 1)
 
                 const rect = this.container.getBoundingClientRect()
@@ -543,8 +698,9 @@ export class TChart {
                     Math.max(8, cx + this.margin.left + 12),
                     rect.width - tipWidth - 8
                 )
+                const targetY = this.chartMode === 'line' ? cy : this.yScale(d.high)
                 const top = Math.min(
-                    Math.max(8, this.yScale(d.high) + this.margin.top - tipHeight - 10),
+                    Math.max(8, targetY + this.margin.top - tipHeight - 10),
                     rect.height - tipHeight - 8
                 )
 
@@ -554,6 +710,7 @@ export class TChart {
             })
             .on('mouseleave', () => {
                 this.hoverLine.attr('opacity', 0)
+                this.priceHoverDot.attr('opacity', 0)
                 this.tooltip.style('opacity', 0)
             })
     }

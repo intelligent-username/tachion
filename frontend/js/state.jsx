@@ -8,9 +8,11 @@ const initialState = {
     assetClass: null,
     timespan: '7d',
     drawMovingAverage: false,
+    drawExponentialMovingAverage: false,
     historicalData: [],
     predictionData: null,
     searchedHistory: {},
+    chartMode: 'bars',
     isLoading: false,
     loadingMessage: null,
     error: null
@@ -251,7 +253,9 @@ export function StateProvider({ children }) {
     const value = {
         ...state,
         setTimespan,
+        setChartMode: (chartMode) => setState(prev => ({ ...prev, chartMode })),
         setDrawMovingAverage: (drawMovingAverage) => setState(prev => ({ ...prev, drawMovingAverage })),
+        setDrawExponentialMovingAverage: (drawExponentialMovingAverage) => setState(prev => ({ ...prev, drawExponentialMovingAverage })),
         setAsset,
         runPrediction,
         registerChart

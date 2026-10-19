@@ -1,6 +1,6 @@
 # Frontend
 
-This folder contains the React-based frontend, built with **Vite** and **Bun**.
+This folder contains the React-based frontend, built with `Vite` & `Bun`.
 
 ## Setup
 
