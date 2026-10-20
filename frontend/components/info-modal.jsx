@@ -83,8 +83,9 @@ const ASSET_DOCS = [
     },
 ]
 
-export default function InfoModal({ onClose }) {
+export default function InfoModal({ onClose, initialAsset = 'equities' }) {
     const overlayRef = useRef(null)
+    const bodyRef = useRef(null)
 
     // Close on Escape
     useEffect(() => {
@@ -92,6 +93,19 @@ export default function InfoModal({ onClose }) {
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
     }, [onClose])
+
+    // Auto-scroll to currently selected asset class section on open
+    useEffect(() => {
+        if (!initialAsset) return
+        const timer = setTimeout(() => {
+            const targetSection = bodyRef.current?.querySelector(`[data-asset-id="${initialAsset}"]`)
+            if (targetSection) {
+                targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                targetSection.classList.add('info-asset-highlight')
+            }
+        }, 80)
+        return () => clearTimeout(timer)
+    }, [initialAsset])
 
     // Close on backdrop click
     const handleOverlayClick = (e) => {
@@ -111,7 +125,7 @@ export default function InfoModal({ onClose }) {
                     </p>
                 </div>
 
-                <div className="info-modal-body">
+                <div className="info-modal-body" ref={bodyRef}>
                     <section className="info-global-notes">
                         <h3>Note</h3>
                         <ul>
@@ -122,7 +136,11 @@ export default function InfoModal({ onClose }) {
                     </section>
 
                     {ASSET_DOCS.map((asset) => (
-                        <section key={asset.id} className="info-asset-section">
+                        <section
+                            key={asset.id}
+                            data-asset-id={asset.id}
+                            className={`info-asset-section${initialAsset === asset.id ? ' info-asset-target' : ''}`}
+                        >
                             <div className="info-asset-header">
                                 <h3>{asset.label}</h3>
                             </div>

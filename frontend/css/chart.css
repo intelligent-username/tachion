@@ -90,13 +90,26 @@
 .chart-bottom-controls {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 0.75rem;
+  justify-content: space-between;
+  width: 100%;
   margin-top: 0.45rem;
   padding: 0;
 }
 
+.chart-checkbox-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.95rem;
+  margin-left: auto;
+  padding: 0.28rem 0.85rem;
+  background: rgba(12, 18, 37, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
 .chart-mode-toggle {
+  position: relative;
   display: inline-flex;
   align-items: center;
   padding: 0.2rem;
@@ -108,7 +121,31 @@
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
+.chart-mode-indicator {
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: 32px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.chart-mode-toggle.mode-bars .chart-mode-indicator {
+  transform: translateX(0);
+}
+
+.chart-mode-toggle.mode-line .chart-mode-indicator {
+  transform: translateX(34px);
+}
+
 .chart-mode-btn {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -116,24 +153,24 @@
   height: 30px;
   padding: 0;
   background: transparent;
-  border: 1px solid transparent;
+  border: none;
   color: rgba(238, 238, 238, 0.65);
   border-radius: 999px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
   line-height: 1;
 }
 
 .chart-mode-btn:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
+}
+
+.chart-mode-btn:active {
+  transform: scale(0.9);
 }
 
 .chart-mode-btn.active {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.35);
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .chart-checkbox {

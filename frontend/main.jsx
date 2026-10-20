@@ -71,7 +71,8 @@ function ChartToolbar() {
 
 	return (
 		<div className="chart-bottom-controls" role="toolbar" aria-label="Chart display options">
-			<div className="chart-mode-toggle" role="group" aria-label="Chart visualization mode">
+			<div className={`chart-mode-toggle mode-${chartMode}`} role="group" aria-label="Chart visualization mode">
+				<span className="chart-mode-indicator" aria-hidden="true" />
 				<button
 					type="button"
 					className={`chart-mode-btn${chartMode === 'bars' ? ' active' : ''}`}
@@ -102,22 +103,24 @@ function ChartToolbar() {
 					</svg>
 				</button>
 			</div>
-			<label className="chart-checkbox ma-checkbox" aria-label="Simple Moving Average">
-				<input
-					type="checkbox"
-					checked={!!drawMovingAverage}
-					onChange={(e) => setDrawMovingAverage(e.target.checked)}
-				/>
-				<span>MA</span>
-			</label>
-			<label className="chart-checkbox ema-checkbox" aria-label="Exponential Moving Average">
-				<input
-					type="checkbox"
-					checked={!!drawExponentialMovingAverage}
-					onChange={(e) => setDrawExponentialMovingAverage(e.target.checked)}
-				/>
-				<span>EMA</span>
-			</label>
+			<div className="chart-checkbox-group">
+				<label className="chart-checkbox ma-checkbox" aria-label="Simple Moving Average">
+					<input
+						type="checkbox"
+						checked={!!drawMovingAverage}
+						onChange={(e) => setDrawMovingAverage(e.target.checked)}
+					/>
+					<span>MA</span>
+				</label>
+				<label className="chart-checkbox ema-checkbox" aria-label="Exponential Moving Average">
+					<input
+						type="checkbox"
+						checked={!!drawExponentialMovingAverage}
+						onChange={(e) => setDrawExponentialMovingAverage(e.target.checked)}
+					/>
+					<span>EMA</span>
+				</label>
+			</div>
 		</div>
 	)
 }

@@ -119,35 +119,39 @@
 
 .predict-button {
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
   width: 100%;
-  padding: 1rem;
-  margin-top: 2.75rem;
+  padding: 0.85rem 1.25rem;
+  margin-top: 2rem;
   background: var(--btn-bg);
   color: var(--btn-text);
   border: none;
-  border-radius: 14px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.02em;
 }
 
 .predict-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  filter: brightness(1.08);
+}
+
+.predict-button:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .predict-button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .button-text {
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.button-subtitle {
-  font-size: 0.75rem;
-  opacity: 0.8;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
 }

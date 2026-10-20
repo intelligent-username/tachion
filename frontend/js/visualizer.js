@@ -509,8 +509,13 @@ export class TChart {
         const isLineMode = this.chartMode === 'line'
 
         if (isLineMode) {
-            // Hide candlestick elements in stock price mode
-            this.candleLayer.selectAll('g.candle').remove()
+            // Fade out candlestick elements smoothly
+            this.candleLayer.selectAll('g.candle')
+                .transition()
+                .duration(260)
+                .ease(d3.easeCubicOut)
+                .attr('opacity', 0)
+                .remove()
 
             // Draw with a sleek neutral color and gradient
             const neutralColor = 'rgba(238, 238, 238, 0.9)'
@@ -531,21 +536,27 @@ export class TChart {
                 .datum(indexedCandles)
                 .attr('d', areaGenerator)
                 .attr('fill', gradId)
+                .transition()
+                .duration(280)
+                .ease(d3.easeCubicOut)
                 .attr('opacity', 1)
 
             this.priceLine
                 .datum(indexedCandles)
                 .attr('d', lineGenerator)
                 .attr('stroke', neutralColor)
+                .transition()
+                .duration(280)
+                .ease(d3.easeCubicOut)
                 .attr('opacity', 1)
 
             this.priceHoverDot
                 .attr('fill', neutralColor)
                 .attr('opacity', 0)
         } else {
-            // Bars / Candlestick mode: hide price line & area
-            this.priceArea.attr('opacity', 0)
-            this.priceLine.attr('opacity', 0)
+            // Fade out price line & area smoothly
+            this.priceArea.transition().duration(240).ease(d3.easeCubicOut).attr('opacity', 0)
+            this.priceLine.transition().duration(240).ease(d3.easeCubicOut).attr('opacity', 0)
             this.priceHoverDot.attr('opacity', 0)
 
             const minSpacingPx = indexedCandles.length > 1
@@ -557,11 +568,16 @@ export class TChart {
                 .selectAll('g.candle')
                 .data(indexedCandles, d => `${d.date.toISOString()}:${d._i}`)
 
-            candle.exit().remove()
+            candle.exit()
+                .transition()
+                .duration(200)
+                .attr('opacity', 0)
+                .remove()
 
             const candleEnter = candle.enter()
                 .append('g')
                 .attr('class', 'candle')
+                .attr('opacity', 0)
 
             candleEnter.append('line').attr('class', 'wick')
             candleEnter.append('rect').attr('class', 'body')
@@ -582,6 +598,10 @@ export class TChart {
                 .attr('y', d => this.yScale(Math.max(d.open, d.close)))
                 .attr('height', d => Math.max(1, Math.abs(this.yScale(d.open) - this.yScale(d.close))))
                 .attr('fill', d => (d.close >= d.open ? this.upColor : this.downColor))
+
+            merged.transition()
+                .duration(280)
+                .ease(d3.easeCubicOut)
                 .attr('opacity', 0.95)
         }
 

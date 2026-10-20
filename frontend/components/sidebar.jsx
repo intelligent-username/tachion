@@ -68,7 +68,7 @@ export default function Sidebar() {
 
     return (
         <div className="sidebar">
-            {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
+            {showInfo && <InfoModal onClose={() => setShowInfo(false)} initialAsset={assetClass} />}
             <div className="search-section">
                 <button
                     className="info-btn"
@@ -138,12 +138,6 @@ export default function Sidebar() {
                 disabled={isLoading || isSearchEmpty}
             >
                 <span className="button-text">Predict</span>
-                <span className="button-subtitle">
-                    (Model might take some time to run inference)
-                </span>
-                <span>
-                    *Not functional right now, working on tweaking accuracy :)
-                </span>
             </button>
         </div>
     )
