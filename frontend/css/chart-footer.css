@@ -38,12 +38,12 @@
 
 .github-link:hover .github-icon {
   transform: rotate(360deg);
-  box-shadow: inset 0 0 0 1px var(--accent), 0 0 6px var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent), 0 0 3px rgba(231, 76, 60, 0.4);
 }
 
 /* Shared hover glow for interactive UI */
 :is(a, button, .search-icon, .search-result, .search-section input, .search-section select):hover {
-  box-shadow: 0 0 12px rgba(255,255,255,0.35);
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.12);
   filter: none;
 }
 
