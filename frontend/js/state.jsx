@@ -1,4 +1,6 @@
-// Global state management using React Context
+// Global state management using React Context.
+// setState is stable, so the local patch helpers below can be plain functions
+// without affecting callback identities or closure semantics.
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
 import { fetchHistory, fetchPrediction, sendSearch } from './api'
 
@@ -21,11 +23,44 @@ const initialState = {
 // Create context
 const AppContext = createContext(null)
 
+// Cache key for a symbol/asset/timespan combination
+const chartKey = (assetClass, symbol, timespan) => `${assetClass}:${symbol}:${timespan}`
+
 // Provider component
 export function StateProvider({ children }) {
     const [state, setState] = useState(initialState)
     const prefetchInFlight = useRef(new Set())
     const chartInstanceRef = useRef(null)
+
+    // Generic shallow patch of the global state
+    const patch = (update) => setState(prev => ({
+        ...prev,
+        ...(typeof update === 'function' ? update(prev) : update)
+    }))
+
+    // Record that a symbol/asset/timespan has been searched (cached)
+    const markSearched = (key) => patch(prev => ({
+        searchedHistory: { ...prev.searchedHistory, [key]: true }
+    }))
+
+    // Store fetched history and end the loading state
+    const applyHistory = (data, key) => patch(prev => ({
+        historicalData: data,
+        searchedHistory: { ...prev.searchedHistory, [key]: true },
+        isLoading: false,
+        loadingMessage: null
+    }))
+
+    // Ensure the UI clears when there's no data
+    const finishEmpty = () => patch({ historicalData: [], predictionData: null })
+
+    // Error state; optionally clears chart data (loading failures do)
+    const failLoad = (err, clearData = true) => patch({
+        error: err.message,
+        isLoading: false,
+        loadingMessage: null,
+        ...(clearData ? { historicalData: [], predictionData: null } : {})
+    })
 
     // Let graph.jsx register its TChart instance so runPrediction can read currentData
     const registerChart = useCallback((chart) => {
@@ -57,7 +92,7 @@ export function StateProvider({ children }) {
         const prefetchTs = getPrefetchTimespan(currentTimespan)
         if (!prefetchTs) return
 
-        const key = `${assetClass}:${symbol}:${prefetchTs}`
+        const key = chartKey(assetClass, symbol, prefetchTs)
         if (state.searchedHistory[key]) return
         if (prefetchInFlight.current.has(key)) return
 
@@ -65,13 +100,7 @@ export function StateProvider({ children }) {
         try {
             const data = await fetchHistory(symbol, assetClass, prefetchTs)
             if (Array.isArray(data) && data.length > 0) {
-                setState(prev => ({
-                    ...prev,
-                    searchedHistory: {
-                        ...prev.searchedHistory,
-                        [key]: true
-                    }
-                }))
+                markSearched(key)
             }
         } catch {
             // Silent background prefetch
@@ -80,54 +109,37 @@ export function StateProvider({ children }) {
         }
     }, [getPrefetchTimespan, state.searchedHistory])
 
+    // After a history fetch: warm the prefetch cache or clear the UI on empty data
+    const finishHistoryFetch = (symbol, assetClass, timespan, data) => {
+        if (Array.isArray(data) && data.length > 0) {
+            // Background cache warm-up for larger timeframes
+            prefetchHistory(symbol, assetClass, timespan)
+        } else {
+            finishEmpty()
+        }
+    }
+
+    const beginAssetLoad = (symbol, assetClass, timespan, message, resetPrediction = false) => patch({
+        currentSymbol: symbol,
+        assetClass,
+        timespan,
+        isLoading: true,
+        loadingMessage: message,
+        error: null,
+        ...(resetPrediction ? { predictionData: null } : {})
+    })
+
     // Set the current asset and fetch its history
     const setAsset = useCallback(async (symbol, assetClass, timespan = state.timespan) => {
-        setState(prev => ({
-            ...prev,
-            currentSymbol: symbol,
-            assetClass: assetClass,
-            timespan,
-            isLoading: true,
-            loadingMessage: 'Collecting Data...',
-            error: null,
-            predictionData: null
-        }))
+        beginAssetLoad(symbol, assetClass, timespan, 'Collecting Data...', true)
 
         try {
             await sendSearch(symbol, assetClass, timespan)
             const data = await fetchHistory(symbol, assetClass, timespan)
-            const key = `${assetClass}:${symbol}:${timespan}`
-            setState(prev => ({
-                ...prev,
-                historicalData: data,
-                searchedHistory: {
-                    ...prev.searchedHistory,
-                    [key]: true
-                },
-                isLoading: false,
-                loadingMessage: null
-            }))
-
-            if (Array.isArray(data) && data.length > 0) {
-                // Background cache warm-up for larger timeframes
-                prefetchHistory(symbol, assetClass, timespan)
-            } else {
-                // Ensure UI clears on empty result
-                setState(prev => ({
-                    ...prev,
-                    historicalData: [],
-                    predictionData: null
-                }))
-            }
+            applyHistory(data, chartKey(assetClass, symbol, timespan))
+            finishHistoryFetch(symbol, assetClass, timespan, data)
         } catch (err) {
-            setState(prev => ({
-                ...prev,
-                error: err.message,
-                isLoading: false,
-                loadingMessage: null,
-                historicalData: [],
-                predictionData: null
-            }))
+            failLoad(err)
         }
     }, [state.timespan])
 
@@ -142,30 +154,15 @@ export function StateProvider({ children }) {
 
         if (!targetSymbol || !targetAssetClass) return
 
-        const key = `${targetAssetClass}:${targetSymbol}:${targetTimespan}`
+        const key = chartKey(targetAssetClass, targetSymbol, targetTimespan)
 
-        setState(prev => ({
-            ...prev,
-            currentSymbol: targetSymbol,
-            assetClass: targetAssetClass,
-            timespan: targetTimespan,
-            isLoading: true,
-            loadingMessage: 'Loading...',
-            error: null
-        }))
+        beginAssetLoad(targetSymbol, targetAssetClass, targetTimespan, 'Loading...')
 
         try {
             if (ensureSearched && !state.searchedHistory[key]) {
                 await sendSearch(targetSymbol, targetAssetClass, targetTimespan)
                 const history = await fetchHistory(targetSymbol, targetAssetClass, targetTimespan)
-                setState(prev => ({
-                    ...prev,
-                    historicalData: history,
-                    searchedHistory: {
-                        ...prev.searchedHistory,
-                        [key]: true
-                    }
-                }))
+                applyHistory(history, key)
             }
 
             // Pull the visualizer's current candle data
@@ -179,19 +176,9 @@ export function StateProvider({ children }) {
                 targetAssetClass,
                 candles
             )
-            setState(prev => ({
-                ...prev,
-                predictionData: prediction,
-                isLoading: false,
-                loadingMessage: null
-            }))
+            patch({ predictionData: prediction, isLoading: false, loadingMessage: null })
         } catch (err) {
-            setState(prev => ({
-                ...prev,
-                error: err.message,
-                isLoading: false,
-                loadingMessage: null
-            }))
+            failLoad(err, false)
         }
     }, [state.currentSymbol, state.assetClass, state.timespan, state.searchedHistory])
 
@@ -201,61 +188,34 @@ export function StateProvider({ children }) {
 
         const targetSymbol = state.currentSymbol
         const targetAssetClass = state.assetClass
-        const key = `${targetAssetClass}:${targetSymbol}:${timespan}`
-        const wasSearched = !!(targetSymbol && targetAssetClass && state.searchedHistory[key])
+        const key = chartKey(targetAssetClass, targetSymbol, timespan)
+        const hasTarget = !!(targetSymbol && targetAssetClass)
+        const wasSearched = !!(hasTarget && state.searchedHistory[key])
 
-        setState(prev => ({
-            ...prev,
+        patch({
             timespan,
             error: null,
-            isLoading: !!(targetSymbol && targetAssetClass),
-            loadingMessage: (targetSymbol && targetAssetClass)
-                ? (wasSearched ? 'Loading...' : 'Collecting Data...')
-                : null
-        }))
+            isLoading: hasTarget,
+            loadingMessage: hasTarget ? (wasSearched ? 'Loading...' : 'Collecting Data...') : null
+        })
 
         if (!targetSymbol || !targetAssetClass) return
 
         try {
             const data = await fetchHistory(targetSymbol, targetAssetClass, timespan)
-            setState(prev => ({
-                ...prev,
-                historicalData: data,
-                searchedHistory: {
-                    ...prev.searchedHistory,
-                    [key]: true
-                },
-                isLoading: false,
-                loadingMessage: null
-            }))
-
-            if (Array.isArray(data) && data.length > 0) {
-                prefetchHistory(targetSymbol, targetAssetClass, timespan)
-            } else {
-                setState(prev => ({
-                    ...prev,
-                    historicalData: [],
-                    predictionData: null
-                }))
-            }
+            applyHistory(data, key)
+            finishHistoryFetch(targetSymbol, targetAssetClass, timespan, data)
         } catch (err) {
-            setState(prev => ({
-                ...prev,
-                error: err.message,
-                isLoading: false,
-                loadingMessage: null,
-                historicalData: [],
-                predictionData: null
-            }))
+            failLoad(err)
         }
     }, [state.currentSymbol, state.assetClass, state.searchedHistory])
 
     const value = {
         ...state,
         setTimespan,
-        setChartMode: (chartMode) => setState(prev => ({ ...prev, chartMode })),
-        setDrawMovingAverage: (drawMovingAverage) => setState(prev => ({ ...prev, drawMovingAverage })),
-        setDrawExponentialMovingAverage: (drawExponentialMovingAverage) => setState(prev => ({ ...prev, drawExponentialMovingAverage })),
+        setChartMode: (chartMode) => patch({ chartMode }),
+        setDrawMovingAverage: (drawMovingAverage) => patch({ drawMovingAverage }),
+        setDrawExponentialMovingAverage: (drawExponentialMovingAverage) => patch({ drawExponentialMovingAverage }),
         setAsset,
         runPrediction,
         registerChart

@@ -9,11 +9,3 @@ export const formatDate = (date) => {
         day: 'numeric'
     })
 }
-
-// Format price for display
-export const formatPrice = (value) => {
-    return value.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    })
-}

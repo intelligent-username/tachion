@@ -107,18 +107,6 @@ body {
   gap: 1.5rem;
 }
 
-.loading {
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.error-message {
-  color: var(--accent);
-  background: rgba(231, 76, 60, 0.1);
-  padding: 0.75rem;
-  border-radius: 8px;
-}
-
 ::-webkit-scrollbar {
   width: 6px;
 }

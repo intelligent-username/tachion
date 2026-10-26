@@ -1,3 +1,5 @@
+/* Chart header + title metrics: single source of truth (previously duplicated
+ * in chart.css via !important overrides; merged values match the old cascade) */
 .chart-header {
 	display: flex;
 	align-items: center;
@@ -14,35 +16,22 @@
 
 .chart-title-wrap {
 	display: flex;
-	align-items: baseline;
+	align-items: center;
 	flex-wrap: wrap;
 	gap: 0.6rem;
 	min-width: 0;
-	flex: 1 1 auto;
+	width: auto;
+	flex: 0 0 auto;
 }
 
 .chart-title-metrics {
+	display: inline-flex;
+	align-items: center;
+	line-height: 1;
 	font-size: 1.08rem;
 	font-weight: 700;
 	white-space: nowrap;
 	color: rgba(238, 238, 238, 0.82);
-}
-
-.ma-switch {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.4rem;
-	margin-left: 0.2rem;
-	font-size: 0.78rem;
-	font-weight: 600;
-	color: rgba(238, 238, 238, 0.86);
-	user-select: none;
-	white-space: nowrap;
-}
-
-.ma-switch input {
-	accent-color: #f1c40f;
-	cursor: pointer;
 }
 
 .chart-title-metrics.up {
@@ -123,10 +112,6 @@
 		font-size: 0.94rem;
 	}
 
-	.ma-switch {
-		font-size: 0.72rem;
-	}
-
 	.timespan-selector {
 		max-width: 100%;
 		gap: 0.35rem;
@@ -156,10 +141,6 @@
 
 	.chart-title-metrics {
 		font-size: 0.9rem;
-	}
-
-	.ma-switch {
-		font-size: 0.68rem;
 	}
 
 	.timespan-selector {

@@ -31,24 +31,6 @@
   align-items: center;
 }
 
-.chart-header {
-  align-items: center !important;
-}
-
-.chart-title-wrap {
-  align-items: center !important;
-  display: flex;
-  gap: 0.75rem;
-  flex: 0 0 auto !important;
-  width: auto !important;
-}
-
-.chart-title-metrics {
-  display: inline-flex;
-  align-items: center;
-  line-height: 1;
-}
-
 .chart-tooltip {
   position: absolute;
   z-index: 4;

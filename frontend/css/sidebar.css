@@ -97,26 +97,6 @@
   pointer-events: none;
 }
 
-.search-results {
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  max-height: 150px;
-  overflow-y: auto;
-  margin-top: 0.5rem;
-}
-
-.search-result {
-  padding: 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.search-result:hover {
-  background: rgba(231, 76, 60, 0.2);
-}
-
 .predict-button {
   display: flex;
   justify-content: center;

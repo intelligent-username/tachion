@@ -42,7 +42,7 @@
 }
 
 /* Shared hover glow for interactive UI */
-:is(a, button, .search-icon, .search-result, .search-section input, .search-section select):hover {
+:is(a, button, .search-icon, .search-section input, .search-section select):hover {
   box-shadow: 0 0 4px rgba(255, 255, 255, 0.12);
   filter: none;
 }
