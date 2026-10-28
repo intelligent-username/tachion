@@ -1,34 +1,32 @@
-// Prediction overlay: median line, upper/lower bounds, and shaded band.
+// Prediction overlay per series: median line, upper/lower bounds, and shaded band.
 // Expects: { predictions: [{ timestamp, upper, lower, median }, ...] }
-// where predictions.length === Math.floor(Math.log(n)), n = currentData.length
-import * as d3 from 'd3'
 import { toNumber } from './visualizer-data'
 import { xyLine, xyArea } from './visualizer-d3'
-import { drawStyledXAxis } from './visualizer-axes'
 
-// Hide the prediction overlay elements (used when clearing or redrawing)
-export function resetPredictionOverlays(chart) {
-    chart.predictionLine.attr('opacity', 0)
-    chart.predictionBand.attr('opacity', 0)
-    chart.predictionUpper.attr('opacity', 0)
-    chart.predictionLower.attr('opacity', 0)
+// Hide one series' prediction overlay elements
+export function resetPredictionOverlays(renderer) {
+    renderer.prediction.line.attr('opacity', 0)
+    renderer.prediction.band.attr('opacity', 0)
+    renderer.prediction.upper.attr('opacity', 0)
+    renderer.prediction.lower.attr('opacity', 0)
 }
 
-// Draw the prediction overlay anchored at the last real candle, extending the
-// x axis to make room for the forecast points.
-export function animatePrediction(chart, prediction) {
-    if (!chart.currentData.length) return
+// Draw one series' prediction overlay anchored at its last native candle.
+// animatePrediction(renderer, { predictions: [{ median: 10, upper: 11, lower: 9 }] }, chart)
+// extends the median from renderer.native's last close at renderer.lastUnionIndex.
+export function animatePrediction(renderer, prediction, chart, xScale = chart.xScale) {
+    if (!renderer?.native?.length) return
 
     const pts = prediction?.predictions ?? []
     if (!pts.length) {
-        resetPredictionOverlays(chart)
+        resetPredictionOverlays(renderer)
         return
     }
 
-    const last = chart.currentData[chart.currentData.length - 1]
-    const startX = Math.max(0, chart.currentData.length - 1)
+    const last = renderer.native[renderer.native.length - 1]
+    const startX = Number.isFinite(renderer.lastUnionIndex) ? renderer.lastUnionIndex : last._i
 
-    // Build indexed path data for each series, anchored at the last real candle
+    // Build union-indexed path data anchored at the last native candle
     const medianPath = [
         { x: startX, y: last.close },
         ...pts.map((p, i) => ({ x: startX + i + 1, y: toNumber(p.median) }))
@@ -42,51 +40,32 @@ export function animatePrediction(chart, prediction) {
         ...pts.map((p, i) => ({ x: startX + i + 1, y: toNumber(p.lower) }))
     ]
 
-    // Extend xScale to make room for prediction points
-    const extendedMaxX = Math.max(chart.currentMaxX, startX + pts.length)
-    const xOverlayScale = chart.xScale.copy().domain([0, extendedMaxX])
+    const lineFn = xyLine(xScale, renderer.yScale)
+    const bandArea = xyArea(xScale, renderer.yScale, (d, i) => renderer.yScale(lowerPath[i].y))
 
-    // Re-draw x axis with same tick logic
-    const tickValues = Array.isArray(chart._xTickValues) && chart._xTickValues.length
-        ? chart._xTickValues
-        : d3.range(0, Math.min(chart.baseDates.length, 8)).map(i => i)
-
-    const tickFormat = (v) => {
-        const i = Math.round(v)
-        if (i < 0 || i >= chart.baseDates.length) return ''
-        if (chart._xTickLabelMap && chart._xTickLabelMap.has(i)) return chart._xTickLabelMap.get(i)
-        const dt = chart.baseDates[i]
-        return chart._xTickFormatter ? chart._xTickFormatter(dt) : (dt ? d3.timeFormat('%b %d')(dt) : '')
-    }
-    drawStyledXAxis(chart, xOverlayScale, tickValues, tickFormat)
-
-    // Line and band generators over the overlay scale
-    const lineFn = xyLine(xOverlayScale, chart.yScale)
-    const bandArea = xyArea(xOverlayScale, chart.yScale, (d, i) => chart.yScale(lowerPath[i].y))
-
-    chart.hasPrediction = true
-    chart.currentPredictionPoints = medianPath
-    chart.predictionBand
+    renderer.currentPredictionPoints = medianPath
+    renderer.prediction.band
         .datum(upperPath)
         .attr('d', bandArea)
         .attr('opacity', 1)
 
     // Median line (prominent, dashed)
-    chart.predictionLine
+    renderer.prediction.line
         .datum(medianPath)
         .attr('d', lineFn)
+        .attr('opacity', 1)
 
     // Upper bound line (subtle, dashed)
-    chart.predictionUpper
+    renderer.prediction.upper
         .datum(upperPath)
         .attr('d', lineFn)
         .attr('opacity', 1)
 
     // Lower bound line (subtle, dashed)
-    chart.predictionLower
+    renderer.prediction.lower
         .datum(lowerPath)
         .attr('d', lineFn)
         .attr('opacity', 1)
 
-    chart.updateLineOpacities()
+    chart?.updateLineOpacities?.()
 }

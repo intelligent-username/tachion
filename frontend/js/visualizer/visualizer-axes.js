@@ -7,6 +7,11 @@ const fmtTime = d3.timeFormat('%b %d %H:%M')
 const fmtTimeYear = d3.timeFormat('%b %d %Y %H:%M')
 const fmtIso = d3.timeFormat('%Y-%m-%d %H:%M')
 
+const AXIS_TICK_COUNT = 6
+const AXIS_STROKE = 'rgba(255,255,255,0.2)'
+const GRID_STROKE = 'rgba(255,255,255,0.08)'
+const NEUTRAL_TEXT_FILL = 'rgba(238,238,238,0.75)'
+
 // Build index-based tick positions and unique date labels for the x axis.
 // The x axis is index-based (not wall-clock continuous) to avoid
 // weekend/closed-market gaps.
@@ -107,13 +112,13 @@ export function applyXAxisLabelAnchoring(axisSelection, scale, width) {
         })
 }
 
-export function applyAxisStrokeAndTextStyling(axisSelection) {
-    axisSelection.selectAll('path,line').attr('stroke', 'rgba(255,255,255,0.2)')
-    axisSelection.selectAll('text').attr('fill', 'rgba(238,238,238,0.75)').style('font-size', '10px')
+export function applyAxisStrokeAndTextStyling(axisSelection, textFill = NEUTRAL_TEXT_FILL) {
+    axisSelection.selectAll('path,line').attr('stroke', AXIS_STROKE)
+    axisSelection.selectAll('text').attr('fill', textFill).style('font-size', '10px')
 }
 
-// Draw the x/y axes and grid: x axis with prepared ticks via the shared
-// composed drawer, y axis with subtle stroke/text styling, then grid lines.
+// Draw the x axis and the left/right y axes. The left axis owns the gridlines;
+// the right axis only appears when a second series has data.
 export function drawAxes(chart, { tickValues, labelMap }) {
     drawStyledXAxis(
         chart,
@@ -122,14 +127,55 @@ export function drawAxes(chart, { tickValues, labelMap }) {
         (v) => labelMap.get(Math.round(v)) ?? ''
     )
 
-    const yAxis = d3.axisLeft(chart.yScale).ticks(6)
-    chart.yAxis.call(yAxis)
-    applyAxisStrokeAndTextStyling(chart.yAxis)
+    const visible = (chart.series ?? []).filter(s => s.native && s.native.length > 0)
 
-    const yGrid = d3.axisLeft(chart.yScale).ticks(6).tickSize(-chart.width).tickFormat('')
+    if (visible.length === 0) {
+        chart.leftYAxis.selectAll('*').remove()
+        chart.rightYAxis.selectAll('*').remove()
+        chart.rightYAxis.style('display', 'none')
+        chart.gridLayer.selectAll('*').remove()
+        return
+    }
+
+    drawLeftAxis(chart, visible, visible.length >= 2)
+    drawGridLines(chart, visible[0].yScale)
+
+    if (visible.length >= 2) {
+        drawRightAxis(chart, visible[1])
+    } else {
+        chart.rightYAxis.selectAll('*').remove()
+        chart.rightYAxis.style('display', 'none')
+    }
+}
+
+// Left axis labels stay neutral with one series; with two they take series 1's
+// identity color.
+function drawLeftAxis(chart, visible, tinted) {
+    chart.leftYAxis.call(d3.axisLeft(visible[0].yScale).ticks(AXIS_TICK_COUNT))
+    applyAxisStrokeAndTextStyling(
+        chart.leftYAxis,
+        tinted ? visible[0].colors?.axis : NEUTRAL_TEXT_FILL
+    )
+}
+
+// Gridlines come only from the left scale and are never tinted.
+function drawGridLines(chart, yScale) {
+    const yGrid = d3.axisLeft(yScale)
+        .ticks(AXIS_TICK_COUNT)
+        .tickSize(-chart.width)
+        .tickFormat('')
     chart.gridLayer.call(yGrid)
-    chart.gridLayer.selectAll('line').attr('stroke', 'rgba(255,255,255,0.08)')
+    chart.gridLayer.selectAll('line').attr('stroke', GRID_STROKE)
     chart.gridLayer.selectAll('path').attr('stroke', 'transparent')
+}
+
+// Right axis for the second visible series, offset to the plot's right edge.
+function drawRightAxis(chart, series) {
+    chart.rightYAxis
+        .attr('transform', `translate(${chart.width},0)`)
+        .style('display', 'block')
+    chart.rightYAxis.call(d3.axisRight(series.yScale).ticks(AXIS_TICK_COUNT))
+    applyAxisStrokeAndTextStyling(chart.rightYAxis, series.colors?.axis)
 }
 
 // Composed x axis draw: bottom axis, edge label anchoring, shared styling.

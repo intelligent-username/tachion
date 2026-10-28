@@ -120,3 +120,19 @@ export function clampRowsByTimespan(rows, timespan) {
 
     return clamped.length > 1 ? clamped : rows.slice(-2)
 }
+
+// Normalize raw OHLCV rows into date-sorted candles clamped to the timespan.
+// prepareCandles([{ close: 10 }], 'max') returns one candle with close 10.
+export function prepareCandles(rows, timespan = 'max') {
+    const rawRows = clampRowsByTimespan(rows ?? [], timespan)
+    let previousClose = null
+    const normalized = rawRows
+        .map(row => {
+            const candle = normalizeCandle(row, previousClose)
+            if (candle) previousClose = candle.close
+            return candle
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.date - b.date)
+    return clampCandlesByTimespan(normalized, timespan)
+}

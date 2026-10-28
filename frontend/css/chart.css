@@ -186,3 +186,110 @@
 .chart-checkbox:hover {
   color: #ffffff;
 }
+
+/* In-chart legend (multi-series) */
+.chart-legend {
+  position: absolute;
+  top: 10px;
+  left: 62px;
+  z-index: 3;
+  display: grid;
+  gap: 0.25rem;
+  max-width: calc(100% - 80px);
+  padding: 0.4rem 0.5rem;
+  background: var(--chart-legend-bg, rgba(12, 18, 37, 0.72));
+  border: 1px solid var(--chart-legend-border, rgba(255, 255, 255, 0.14));
+  border-radius: 10px;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+.chart-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.15rem 0.25rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  color: var(--text-main);
+  pointer-events: auto;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.chart-legend-row.is-focused {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.chart-legend-swatch {
+  flex: 0 0 9px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.chart-legend-symbol {
+  min-width: 0;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.chart-legend-value {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chart-legend-change {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chart-legend-change.is-up {
+  color: hsl(var(--success, 145 63% 42%));
+}
+
+.chart-legend-change.is-down {
+  color: hsl(var(--danger, 6 78% 57%));
+}
+
+.chart-legend-status {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+.chart-legend-status.is-error {
+  color: var(--accent);
+  font-weight: 700;
+  cursor: help;
+}
+
+.chart-legend-remove {
+  flex: 0 0 auto;
+  padding: 0 0.1rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: color 0.2s ease;
+}
+
+.chart-legend-remove:hover {
+  color: #ffffff;
+}
+
+.chart-legend-remove:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}

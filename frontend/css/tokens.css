@@ -63,6 +63,21 @@
   --radius: 0.75rem;               /* 12px */
   --radius-lg: 1rem;               /* 16px panels */
   --radius-full: 999px;            /* chips */
+
+  /* Chart series + legend (mirrors visualizer-colors.js) */
+  --series-1-up: #27ae60;
+  --series-1-down: #e74c3c;
+  --series-1-line: #e74c3c;
+  --series-1-axis: #e74c3c;
+  --series-2-up: #4dabf7;
+  --series-2-down: #ff8a4c;
+  --series-2-line: #00d2ff;
+  --series-2-axis: #00d2ff;
+  --series-ma: #f1c40f;
+  --series-ema: #00d2ff;
+  --series-2-dash: 6 3;
+  --chart-legend-bg: rgba(12, 18, 37, 0.72);
+  --chart-legend-border: rgba(255, 255, 255, 0.14);
 }
 
 /* Optional light theme — not active, included for completeness */

@@ -1,46 +1,85 @@
-// Graph component - D3 chart wrapper
-import { useEffect, useRef } from 'react'
+// Graph component - series-aware D3 chart wrapper
+import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../js/state'
 import { TChart } from '../js/visualizer'
+import ChartLegend from './chart-legend'
 
 export default function Graph() {
     const containerRef = useRef(null)
     const chartRef = useRef(null)
-    const { historicalData, predictionData, timespan, drawMovingAverage, drawExponentialMovingAverage, chartMode, isLoading, loadingMessage, currentSymbol, error, registerChart } = useAppState()
+    const [legendStats, setLegendStats] = useState([])
+    const {
+        series,
+        predictions,
+        timespan,
+        drawMovingAverage,
+        drawExponentialMovingAverage,
+        chartMode,
+        isLoading,
+        loadingMessage,
+        focusedSeriesId,
+        registerChart,
+        removeSeries
+    } = useAppState()
 
     // Initialize chart on mount
     useEffect(() => {
-        if (containerRef.current && !chartRef.current) {
-            chartRef.current = new TChart(containerRef.current)
-            registerChart(chartRef.current)
+        if (!containerRef.current || chartRef.current) return
+
+        const chart = new TChart(containerRef.current, { onStats: setLegendStats })
+        chartRef.current = chart
+        registerChart(chart)
+
+        return () => {
+            chart.destroy()
+            chartRef.current = null
+            registerChart(null)
+            setLegendStats([])
         }
     }, [registerChart])
 
-    // Update history when data changes or chart mode changes
+    // Render series data before predictions so the data pass cannot clear new overlays
     useEffect(() => {
-        if (chartRef.current) {
-            chartRef.current.renderHistory(historicalData, timespan, drawMovingAverage, chartMode, drawExponentialMovingAverage)
-        }
-    }, [historicalData, timespan, drawMovingAverage, drawExponentialMovingAverage, chartMode])
+        if (!chartRef.current) return
 
-    // Animate prediction when it arrives
+        chartRef.current.renderSeries(
+            series.map(s => ({ id: s.id, symbol: s.symbol, assetClass: s.assetClass, data: s.data })),
+            {
+                timespan,
+                chartMode,
+                showMovingAverage: drawMovingAverage,
+                showExponentialMovingAverage: drawExponentialMovingAverage
+            }
+        )
+    }, [series, timespan, chartMode, drawMovingAverage, drawExponentialMovingAverage])
+
+    // Apply predictions after the data render pass
     useEffect(() => {
-        if (chartRef.current && predictionData) {
-            chartRef.current.animatePrediction(predictionData)
-        }
-    }, [predictionData])
+        if (!chartRef.current) return
+        chartRef.current.applyPredictions(predictions)
+    }, [predictions])
+
+    const hasAnyData = series.some(s => (s.data?.length ?? 0) > 0)
+    const hasSymbol = series.some(s => s.symbol)
 
     return (
         <div ref={containerRef} className="chart-container">
-            {isLoading && (
+            <ChartLegend
+                stats={legendStats}
+                series={series}
+                focusedSeriesId={focusedSeriesId}
+                onRemove={removeSeries}
+            />
+
+            {isLoading && !hasAnyData && (
                 <div className="chart-loading-overlay">
                     <span>{loadingMessage || 'Loading...'}</span>
                 </div>
             )}
 
-            {!isLoading && currentSymbol && (historicalData?.length ?? 0) === 0 && (
+            {!isLoading && !hasAnyData && hasSymbol && (
                 <div className="chart-loading-overlay">
-                    <span>{error ? 'No data' : 'No data'}</span>
+                    <span>No data</span>
                 </div>
             )}
             {/* D3 will render the chart here */}

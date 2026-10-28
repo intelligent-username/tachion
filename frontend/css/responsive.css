@@ -104,3 +104,111 @@
     font-size: 1rem;
   }
 }
+
+/* ── Multi-series chips and legend ───────────────── */
+@media (max-width: 900px) {
+  .series-chips {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    min-width: 0;
+    margin-top: 0.5rem;
+  }
+
+  .series-duplicate-msg {
+    flex: 1 1 100%;
+  }
+
+  .series-chip-symbol {
+    max-width: 10rem;
+  }
+}
+
+@media (max-width: 680px) {
+  .chart-legend {
+    top: 8px;
+    left: 58px;
+    max-width: calc(100% - 72px);
+    gap: 0.2rem;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.68rem;
+  }
+
+  .chart-legend-row {
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    row-gap: 0.15rem;
+    padding: 0.1rem 0.2rem;
+    font-size: 0.68rem;
+  }
+
+  .chart-legend-symbol {
+    max-width: 84px;
+  }
+
+  .chart-legend-value {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chart-legend-change {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 600px) {
+  .series-chips {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .series-chip {
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+
+  .series-add-btn {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .chart-legend {
+    left: 62px;
+    max-width: calc(100% - 74px);
+    padding: 0.25rem 0.35rem;
+  }
+
+  .chart-legend-row {
+    padding: 0.1rem 0.15rem;
+  }
+
+  .chart-legend-symbol {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  .chart-legend-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    min-height: 18px;
+  }
+}
+
+@media (max-width: 375px) {
+  .series-chips {
+    gap: 0.4rem;
+    max-width: 100%;
+  }
+
+  .series-chip {
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+
+  .series-chip-symbol {
+    max-width: 6.5rem;
+  }
+}

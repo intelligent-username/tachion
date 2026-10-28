@@ -31,3 +31,22 @@ export function indexArea(xScale, yScale, y0, pointCount) {
         .y1(d => yScale(d.close))
         .curve(pickCurve(pointCount))
 }
+
+// Gapped variants for union-aligned series: a missing slot breaks the path
+// instead of drawing a line across timestamps the instrument did not trade.
+export function indexLineGapped(xScale, yScale, pointCount) {
+    return d3.line()
+        .defined(d => d && Number.isFinite(d.close))
+        .x(d => xScale(d._i))
+        .y(d => yScale(d.close))
+        .curve(pickCurve(pointCount))
+}
+
+export function indexAreaGapped(xScale, yScale, y0, pointCount) {
+    return d3.area()
+        .defined(d => d && Number.isFinite(d.close))
+        .x(d => xScale(d._i))
+        .y0(y0)
+        .y1(d => yScale(d.close))
+        .curve(pickCurve(pointCount))
+}
