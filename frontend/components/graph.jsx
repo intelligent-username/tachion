@@ -43,7 +43,7 @@ export default function Graph() {
         if (!chartRef.current) return
 
         chartRef.current.renderSeries(
-            series.map(s => ({ id: s.id, symbol: s.symbol, assetClass: s.assetClass, data: s.data })),
+            series.map(s => ({ id: s.id, symbol: s.symbol, assetClass: s.assetClass, data: s.data, hiddenLevel: s.hiddenLevel ?? 0 })),
             {
                 timespan,
                 chartMode,

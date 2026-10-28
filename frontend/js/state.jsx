@@ -16,6 +16,7 @@ const createSeries = (symbol = null, assetClass = null) => ({
     symbol,
     assetClass,
     data: [],
+    hiddenLevel: 0,
     status: 'idle',
     error: null,
     message: null
@@ -190,6 +191,10 @@ export function StateProvider({ children }) {
                 symbol,
                 assetClass,
                 data: [],
+                // Reloading the same instrument keeps its visibility; a new one starts visible
+                hiddenLevel: s.symbol === symbol && s.assetClass === assetClass
+                    ? (s.hiddenLevel ?? 0)
+                    : 0,
                 status: 'loading',
                 error: null,
                 message: 'Collecting Data...'
@@ -238,6 +243,19 @@ export function StateProvider({ children }) {
             const series = [...prev.series]
             const [moved] = series.splice(from, 1)
             series.splice(to, 0, moved)
+            return { ...prev, series }
+        })
+    }, [])
+
+    // 0 = main graph visible, 1 = main graph hidden
+    const cycleSeriesVisibility = useCallback((id) => {
+        setState(prev => {
+            const index = prev.series.findIndex(s => s.id === id)
+            if (index < 0) return prev
+
+            const series = [...prev.series]
+            const slot = series[index]
+            series[index] = { ...slot, hiddenLevel: (slot.hiddenLevel ?? 0) >= 1 ? 0 : 1 }
             return { ...prev, series }
         })
     }, [])
@@ -457,6 +475,7 @@ export function StateProvider({ children }) {
         focusSeries,
         removeSeries,
         reorderSeries,
+        cycleSeriesVisibility,
         isDuplicateSeries,
         setSeriesSymbol
     }

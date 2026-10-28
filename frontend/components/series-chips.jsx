@@ -1,5 +1,5 @@
 // Sidebar series chips - one chip per chart slot, in axis order
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { resolveSeriesColors } from '../js/visualizer/visualizer-colors'
 
 function errorMessage(error) {
@@ -22,19 +22,20 @@ function ChipStatus({ status, error }) {
     )
 }
 
+function hiddenLabel(mainHidden) {
+    return mainHidden ? 'main graph hidden' : 'main graph visible'
+}
+
 function SeriesChip({
     slot,
     index,
     total,
     isFocused,
-    dragActive,
     isDragSource,
     isDropTarget,
-    onFocus,
+    onActivate,
     onRemove,
     onDragStart,
-    onDragOver,
-    onDrop,
     onDragEnd,
     onMove
 }) {
@@ -43,12 +44,13 @@ function SeriesChip({
     const axisLabel = index === 0 ? 'left axis' : 'right axis'
     const name = symbol || 'Empty slot'
     const canDrag = Boolean(symbol)
+    const mainHidden = (slot.hiddenLevel ?? 0) >= 1
 
     const handleKeyDown = (event) => {
         if (event.target !== event.currentTarget) return
         if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
-            onFocus?.(slot.id)
+            onActivate?.(slot.id)
             return
         }
         if (!canDrag || !event.altKey) return
@@ -71,35 +73,20 @@ function SeriesChip({
         onDragStart?.(slot.id)
     }
 
-    const handleDragOver = (event) => {
-        if (!canDrag || !dragActive) return
-        event.preventDefault()
-        event.dataTransfer.dropEffect = 'move'
-        onDragOver?.(slot.id)
-    }
-
-    const handleDrop = (event) => {
-        if (!canDrag) return
-        event.preventDefault()
-        const sourceId = event.dataTransfer.getData('text/plain')
-        if (sourceId && sourceId !== slot.id) onDrop?.(sourceId, slot.id)
-        onDragEnd?.()
-    }
-
     return (
         <div
             className={`series-chip${isFocused ? ' is-focused' : ''}${isDragSource ? ' is-dragging' : ''}${isDropTarget ? ' is-drop-target' : ''}`}
             role="button"
             tabIndex={0}
             draggable={canDrag}
+            data-series-id={slot.id}
+            data-hidden-level={mainHidden ? 1 : 0}
             aria-pressed={isFocused}
             aria-keyshortcuts={canDrag && total > 1 ? 'Alt+ArrowLeft Alt+ArrowRight' : undefined}
-            aria-label={`${isFocused ? 'Editing' : 'Edit'} ${name} (${axisLabel})`}
-            onClick={() => onFocus?.(slot.id)}
+            aria-label={`${isFocused ? 'Editing' : 'Edit'} ${name} (${axisLabel}); ${hiddenLabel(mainHidden)}`}
+            onClick={() => onActivate?.(slot.id)}
             onKeyDown={handleKeyDown}
             onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
             onDragEnd={onDragEnd}
         >
             <span
@@ -138,31 +125,61 @@ export default function SeriesChips({
     onFocus,
     onRemove,
     onAdd,
-    onReorder
+    onReorder,
+    onCycle
 }) {
     const [draggingId, setDraggingId] = useState(null)
     const [dropTargetId, setDropTargetId] = useState(null)
+    const dragIdRef = useRef(null)
+    const lastSwapTargetRef = useRef(null)
     const isMax = series.length >= maxSeries
     const addTitle = isMax ? `Maximum ${maxSeries} instruments` : 'Add instrument'
 
     const resetDrag = () => {
+        dragIdRef.current = null
+        lastSwapTargetRef.current = null
         setDraggingId(null)
         setDropTargetId(null)
     }
 
     const handleDragStart = (id) => {
+        dragIdRef.current = id
+        lastSwapTargetRef.current = null
         setDraggingId(id)
         setDropTargetId(null)
     }
 
-    const handleDragOver = (id) => {
-        setDropTargetId(id === draggingId ? null : id)
-    }
+    // Swap live while dragging over another populated pill. The ref prevents
+    // repeated dragover events from toggling the order back and forth.
+    const handleDragOver = (event) => {
+        const sourceId = dragIdRef.current
+        if (!sourceId) return
+        event.preventDefault()
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
 
-    const handleDrop = (sourceId, targetId) => {
+        const targetId = event.target.closest?.('.series-chip')?.dataset.seriesId
+        if (!targetId || targetId === sourceId) {
+            lastSwapTargetRef.current = null
+            setDropTargetId(null)
+            return
+        }
+
         const source = series.find(s => s.id === sourceId)
         const target = series.find(s => s.id === targetId)
-        if (source?.symbol && target?.symbol) onReorder?.(sourceId, targetId)
+        if (!source?.symbol || !target?.symbol) {
+            setDropTargetId(null)
+            return
+        }
+
+        setDropTargetId(targetId)
+        if (lastSwapTargetRef.current === targetId) return
+        lastSwapTargetRef.current = targetId
+        onReorder?.(sourceId, targetId)
+    }
+
+    const handleDrop = (event) => {
+        if (!dragIdRef.current) return
+        event.preventDefault()
         resetDrag()
     }
 
@@ -173,11 +190,19 @@ export default function SeriesChips({
         onReorder?.(id, target.id)
     }
 
+    const handleActivate = (id) => {
+        onFocus?.(id)
+        if (series.find(s => s.id === id)?.symbol) onCycle?.(id)
+    }
+
     return (
         <div
             className="series-chips"
             role="group"
-            aria-label="Chart instruments. Drag to reorder, or press Alt plus arrow keys."
+            aria-label="Chart instruments. Drag to reorder, press Alt plus arrow keys, or click a pill to cycle hidden layers."
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragOver}
+            onDrop={handleDrop}
         >
             {series.map((slot, index) => (
                 <SeriesChip
@@ -186,14 +211,11 @@ export default function SeriesChips({
                     index={index}
                     total={series.length}
                     isFocused={slot.id === focusedSeriesId}
-                    dragActive={draggingId !== null}
                     isDragSource={slot.id === draggingId}
                     isDropTarget={slot.id === dropTargetId}
-                    onFocus={onFocus}
+                    onActivate={handleActivate}
                     onRemove={onRemove}
                     onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
                     onDragEnd={resetDrag}
                     onMove={handleMove}
                 />

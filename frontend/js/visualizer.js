@@ -5,7 +5,7 @@ import * as d3 from 'd3'
 import { prepareCandles } from './visualizer/visualizer-data'
 import { CHART_MARGIN, SERIES_AXIS_MARGIN_RIGHT, initChartSvg } from './visualizer/visualizer-layers'
 import { buildXTicks, drawAxes, drawStyledXAxis } from './visualizer/visualizer-axes'
-import { drawLineMode, drawCandlestickMode, drawMovingAverages } from './visualizer/visualizer-render'
+import { drawLineMode, drawCandlestickMode, drawMovingAverages, clearMainGraph } from './visualizer/visualizer-render'
 import { applyLineOpacities, bindHover } from './visualizer/visualizer-hover'
 import { animatePrediction as drawPredictionOverlay, resetPredictionOverlays } from './visualizer/visualizer-prediction'
 import { createSeriesRenderer, removeSeriesRenderer } from './visualizer/visualizer-series'
@@ -165,12 +165,7 @@ export class TChart {
 
         for (const renderer of this.series) {
             if (!renderer.native.length) continue
-            if (this.chartMode === 'line') {
-                drawLineMode(renderer, this)
-            } else {
-                drawCandlestickMode(renderer, this)
-            }
-            drawMovingAverages(renderer, this)
+            drawRendererLayers(this, renderer)
         }
 
         bindHover(this)
@@ -356,6 +351,7 @@ function reconcileRenderer(chart, series, index, total, existingById) {
     renderer.index = index
     renderer.symbol = series.symbol
     renderer.assetClass = series.assetClass
+    renderer.hiddenLevel = series.hiddenLevel ?? 0
     renderer.colors = colors
     renderer.native = series.native
     renderer.aligned = series.aligned
@@ -473,6 +469,18 @@ function clearEmptyChart(chart) {
     chart.onStats?.([])
 }
 
+// Draw the layers a renderer's visibility level leaves enabled.
+function drawRendererLayers(chart, renderer) {
+    if ((renderer.hiddenLevel ?? 0) >= 1) {
+        clearMainGraph(renderer)
+    } else if (chart.chartMode === 'line') {
+        drawLineMode(renderer, chart)
+    } else {
+        drawCandlestickMode(renderer, chart)
+    }
+    drawMovingAverages(renderer, chart)
+}
+
 // Draw every populated renderer, then reset stale prediction overlays.
 function drawPreparedSeries(chart) {
     for (const renderer of chart.series) {
@@ -481,12 +489,7 @@ function drawPreparedSeries(chart) {
             continue
         }
 
-        if (chart.chartMode === 'line') {
-            drawLineMode(renderer, chart)
-        } else {
-            drawCandlestickMode(renderer, chart)
-        }
-        drawMovingAverages(renderer, chart)
+        drawRendererLayers(chart, renderer)
     }
 
     for (const renderer of chart.series) {

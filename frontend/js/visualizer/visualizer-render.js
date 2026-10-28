@@ -37,6 +37,14 @@ export function drawLineMode(renderer, chart) {
     renderer.price.dot.attr('opacity', 0)
 }
 
+// Hide the main price layer: candles, line, area, and dot.
+export function clearMainGraph(renderer) {
+    renderer.groups.candles.selectAll('*').remove()
+    renderer.price.area.attr('d', null).attr('opacity', 0)
+    renderer.price.line.attr('d', null).attr('opacity', 0)
+    renderer.price.dot.attr('opacity', 0)
+}
+
 // Candlestick mode: per-series wick + body per native candle, fading out line mode first
 export function drawCandlestickMode(renderer, chart) {
     // Fade out price line & area smoothly

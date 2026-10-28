@@ -181,6 +181,14 @@
   box-shadow: 0 0 0 1px rgba(231, 76, 60, 0.35);
 }
 
+.series-chip[data-hidden-level="1"] {
+  opacity: 0.6;
+}
+
+.series-chip[data-hidden-level="1"] .series-chip-swatch {
+  box-shadow: none;
+}
+
 .series-chip[draggable="true"] {
   cursor: grab;
 }

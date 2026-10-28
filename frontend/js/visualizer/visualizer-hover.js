@@ -36,6 +36,11 @@ export function applyLineOpacities(chart) {
 
 function applyPriceOpacity(chart, renderer) {
     if (chart.chartMode !== 'line' || !renderer.price) return
+    if ((renderer.hiddenLevel ?? 0) >= 1) {
+        renderer.price.line.attr('opacity', 0)
+        renderer.price.area.attr('opacity', 0)
+        return
+    }
 
     const target = resolveEmphasis(chart, renderer, 'price')
     renderer.price.line
@@ -208,9 +213,10 @@ function collectCandidates(chart, idx) {
 
     for (const renderer of chart.series ?? []) {
         if (!renderer?.native?.length) continue
+        const mainHidden = (renderer.hiddenLevel ?? 0) >= 1
 
         const candle = renderer.aligned?.[idx]
-        if (chart.chartMode === 'line' && candle && Number.isFinite(candle.close)) {
+        if (!mainHidden && chart.chartMode === 'line' && candle && Number.isFinite(candle.close)) {
             candidates.push({ seriesId: renderer.id, kind: 'price', y: renderer.yScale(candle.close) })
         }
         if (chart.showMovingAverage) {
@@ -267,6 +273,10 @@ function updateHoverDots(chart, idx) {
     for (const renderer of chart.series ?? []) {
         const dot = renderer.price?.dot
         if (!dot) continue
+        if ((renderer.hiddenLevel ?? 0) >= 1) {
+            dot.attr('opacity', 0)
+            continue
+        }
 
         const candle = chart.chartMode === 'line' ? renderer.aligned?.[idx] : null
         if (!candle || !Number.isFinite(candle.close)) {

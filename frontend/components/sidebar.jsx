@@ -22,6 +22,7 @@ export default function Sidebar() {
         focusSeries,
         removeSeries,
         reorderSeries,
+        cycleSeriesVisibility,
         runPrediction
     } = useAppState()
     const focusedSeries = series.find(s => s.id === focusedSeriesId) ?? series[0] ?? null
@@ -139,6 +140,7 @@ export default function Sidebar() {
                 onFocus={focusSeries}
                 onRemove={handleRemove}
                 onReorder={reorderSeries}
+                onCycle={cycleSeriesVisibility}
                 onAdd={handleAdd}
             />
 
