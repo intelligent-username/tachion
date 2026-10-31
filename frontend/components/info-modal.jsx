@@ -1,5 +1,6 @@
 // InfoModal – Question mark on the search bar for documentation
 import { useEffect, useRef } from 'react'
+import { ASSET_CLASSES } from '../js/asset-classes'
 
 const GLOBAL_NOTES = [
     "The 'custom' time band accepts a timespan in whole days (no decimals).",
@@ -12,10 +13,8 @@ const GLOBAL_NOTES = [
     "Disclaimer: selecting the 'max' timeframe is likely to cause major lag.",
 ]
 
-const ASSET_DOCS = [
-    {
-        id: 'equities',
-        label: 'Equities',
+const ASSET_DOCS = {
+    equities: {
         intro: 'These are data from US stock exchanges..',
         examples: [
             { symbol: 'SPY', label: 'S&P 500 ETF' },
@@ -27,22 +26,7 @@ const ASSET_DOCS = [
             'Prices are shown in USD. Symbols are capped to US stock exchanges. You can type with or without a leading dollar sign, (e.g. $AAPL) and with or without capitalization (e.g. aapl).',
         finalPoint: 'If a ticker is not listed on supported US exchanges, it may not resolve.',
     },
-    {
-        id: 'crypto',
-        label: 'Crypto',
-        intro: 'These are cryptocurrency price movements. Write the base symbol.',
-        examples: [
-            { symbol: 'BTC', label: 'Bitcoin' },
-            { symbol: 'ETH/USD', label: 'Ethereum in USD' },
-            { symbol: 'XRP-usd', label: 'XRP in USD (dash + lowercase works)' },
-        ],
-        alternatives:
-            'You may add slash/lowercase/dash since the backend normalizes format. BTC, btc, BTC/USD, and BTC-usdt are accepted and normalized to the base symbol.',
-        finalPoint: 'Data comes from Binance, so some tickers may not show, depending on availability.',
-    },
-    {
-        id: 'forex',
-        label: 'FOREX',
+    forex: {
         intro:
             "This are foreign currency exchanges. Write the primary currency's symbol followed by the currency you want to convert it to.",
         examples: [
@@ -54,9 +38,7 @@ const ASSET_DOCS = [
             'Requirement: 3 letters for the first currency and 3 for the second. Dashes/underscores/slashes may be added, and capitalization is free, since all will be normalized in the backend.',
         finalPoint: 'Pairs outside provider coverage will return no results.',
     },
-    {
-        id: 'comm',
-        label: 'Commodities',
+    comm: {
         intro: 'These are physical commodities.',
         examples: [
             { symbol: 'XAU_USD', label: 'Gold price in USD' },
@@ -68,9 +50,18 @@ const ASSET_DOCS = [
             'Accepted aliases: Gold (will be converted to XAU_USD), SILVER, OIL/WTI/CRUDE, Brent, etc. with varying capitalizations.',
         finalPoint: 'If the OANDA API does not expose a commodity symbol, it cannot be retrieved.',
     },
-    {
-        id: 'interest',
-        label: 'Interest Rates',
+    crypto: {
+        intro: 'These are cryptocurrency price movements. Write the base symbol.',
+        examples: [
+            { symbol: 'BTC', label: 'Bitcoin' },
+            { symbol: 'ETH/USD', label: 'Ethereum in USD' },
+            { symbol: 'XRP-usd', label: 'XRP in USD (dash + lowercase works)' },
+        ],
+        alternatives:
+            'You may add slash/lowercase/dash since the backend normalizes format. BTC, btc, BTC/USD, and BTC-usdt are accepted and normalized to the base symbol.',
+        finalPoint: 'Data comes from Binance, so some tickers may not show, depending on availability.',
+    },
+    interest: {
         intro: 'These are US government interest rate changes. More details coming soon.',
         examples: [
             { symbol: 'DGS10', label: '10-Year Treasury constant maturity rate' },
@@ -81,7 +72,7 @@ const ASSET_DOCS = [
             'Use common FRED series IDs for rates and spreads; symbols are typically uppercase identifiers.',
         finalPoint: 'This category has much longer historical coverage than the others.',
     },
-]
+}
 
 export default function InfoModal({ onClose, initialAsset = 'equities' }) {
     const overlayRef = useRef(null)
@@ -135,33 +126,37 @@ export default function InfoModal({ onClose, initialAsset = 'equities' }) {
                         </ul>
                     </section>
 
-                    {ASSET_DOCS.map((asset) => (
-                        <section
-                            key={asset.id}
-                            data-asset-id={asset.id}
-                            className={`info-asset-section${initialAsset === asset.id ? ' info-asset-target' : ''}`}
-                        >
-                            <div className="info-asset-header">
-                                <h3>{asset.label}</h3>
-                            </div>
+                    {ASSET_CLASSES.map(({ id, label }) => {
+                        const docs = ASSET_DOCS[id]
+                        if (!docs) return null
+                        return (
+                            <section
+                                key={id}
+                                data-asset-id={id}
+                                className={`info-asset-section${initialAsset === id ? ' info-asset-target' : ''}`}
+                            >
+                                <div className="info-asset-header">
+                                    <h3>{label}</h3>
+                                </div>
 
-                            <p className="info-asset-desc">
-                                {asset.intro}
-                            </p>
+                                <p className="info-asset-desc">
+                                    {docs.intro}
+                                </p>
 
-                            <div className="info-examples">
-                                {asset.examples.map((ex) => (
-                                    <div key={`${asset.id}-${ex.symbol}`} className="info-example info-example-chip">
-                                        <span className="info-example-symbol">{ex.symbol}</span>
-                                        <span className="info-example-label">{ex.label}</span>
-                                    </div>
-                                ))}
-                            </div>
+                                <div className="info-examples">
+                                    {docs.examples.map((ex) => (
+                                        <div key={`${id}-${ex.symbol}`} className="info-example-chip">
+                                            <span className="info-example-symbol">{ex.symbol}</span>
+                                            <span className="info-example-label">{ex.label}</span>
+                                        </div>
+                                    ))}
+                                </div>
 
-                            <p className="info-asset-alt">{asset.alternatives}</p>
-                            <p className="info-asset-final">{asset.finalPoint}</p>
-                        </section>
-                    ))}
+                                <p className="info-asset-alt">{docs.alternatives}</p>
+                                <p className="info-asset-final">{docs.finalPoint}</p>
+                            </section>
+                        )
+                    })}
                 </div>
 
                 <div className="info-modal-footer">

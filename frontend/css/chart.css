@@ -197,8 +197,8 @@
   gap: 0.25rem;
   max-width: calc(100% - 80px);
   padding: 0.4rem 0.5rem;
-  background: var(--chart-legend-bg, rgba(12, 18, 37, 0.72));
-  border: 1px solid var(--chart-legend-border, rgba(255, 255, 255, 0.14));
+  background: rgba(12, 18, 37, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 10px;
   backdrop-filter: blur(4px);
   pointer-events: none;

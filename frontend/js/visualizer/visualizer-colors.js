@@ -1,5 +1,4 @@
 // Per-series chart palette. JS source of truth for SVG attributes.
-// Hex values mirror the --series-* custom properties in frontend/css/tokens.css.
 // Pure module: imports nothing from sibling modules.
 
 export const MA_COLOR = '#f1c40f'

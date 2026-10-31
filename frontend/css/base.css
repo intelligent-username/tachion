@@ -63,7 +63,7 @@ body {
   flex: 1 1 auto;
 }
 
-.header h1 {
+.header h2 {
   font-size: clamp(1.2rem, 3vw, 1.8rem);
   color: var(--text-main);
   font-weight: 700;

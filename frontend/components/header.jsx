@@ -8,7 +8,7 @@ export default function Header() {
         <header className="header">
             <div className="brand">
                 <img src="/Logo.svg" alt="Logo" className="logo" />
-                <h1>Tachion</h1>
+                <h2>Tachion</h2>
             </div>
             <span className="date">{formatDate(today)}</span>
         </header>

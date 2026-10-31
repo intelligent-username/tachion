@@ -1,5 +1,5 @@
 // Canonical asset class registry — single source of truth for the sidebar
-// select options, search placeholders, and info modal asset ids.
+// select options, search placeholders, and info modal labels/order.
 export const ASSET_CLASSES = [
     { id: 'equities', label: 'Equities', placeholder: 'e.g. NVDA' },
     { id: 'forex', label: 'FOREX', placeholder: 'e.g. EUR_USD or EUR/USD' },
