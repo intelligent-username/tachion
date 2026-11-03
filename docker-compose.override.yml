@@ -1,0 +1,58 @@
+# Dev mode: `docker compose --profile dev up` (hot-reload stack).
+# Production stays `docker compose up -d` — untouched by this file's services,
+# which only exist under the "dev" profile.
+# Dev services mirror production wiring with source bind mounts instead of
+# baked code: backend auto-reloads (watchfiles), frontend runs Vite dev
+# server with HMR. Stop prod first: `docker compose down` (port conflicts).
+services:
+  backend-dev:
+    profiles: ["dev"]
+    build: .
+    container_name: tachion-backend-dev
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      # watchfiles needs polling for Docker Desktop (WSL2/NTFS) file events
+      WATCHFILES_FORCE_POLLING: "1"
+    volumes:
+      - ./api:/app/api
+      - ./core:/app/core
+      - ./train:/app/train
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./lightning_logs:/app/lightning_logs
+    restart: unless-stopped
+    healthcheck:
+      # slim image lacks curl; use stdlib urllib instead
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  frontend-dev:
+    profiles: ["dev"]
+    container_name: tachion-frontend-dev
+    # Reuses the prod Dockerfile's build stage: node_modules already npm ci'ed
+    # for musl/linux, then source is shadowed by the bind mount for live edit
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: build
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    environment:
+      # vite.config.js proxies /api here (prod nginx does this instead)
+      VITE_API_TARGET: http://backend-dev:8000
+    volumes:
+      - ./frontend:/app:cached
+      # container-native deps override whatever Windows host node_modules exist
+      - frontend_dev_node_modules:/app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend-dev:
+        condition: service_healthy
+
+volumes:
+  frontend_dev_node_modules:

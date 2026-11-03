@@ -1,0 +1,45 @@
+# Tachion stack: FastAPI backend on :8000, Nginx-served frontend on :3000.
+# Secrets come from .env via env_file only; nothing is inlined here.
+# Production: docker compose --profile prod up -d
+# Dev (hot reload): docker compose --profile dev up
+services:
+  backend:
+    profiles: ["prod"]
+    build: .
+    container_name: tachion-backend
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./lightning_logs:/app/lightning_logs
+    # NVIDIA GPU passthrough for Docker Desktop on Windows (WSL2)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      # slim image lacks curl; use stdlib urllib instead
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    profiles: ["prod"]
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tachion-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

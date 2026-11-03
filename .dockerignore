@@ -1,0 +1,48 @@
+# Secrets and env files - NEVER bake into image
+**/.env
+*.env
+
+# VCS and editor noise
+.git/
+.gitignore
+.vscode/
+**/.ipynb_checkpoints
+
+# Virtual environments and node deps (any depth)
+**/.venv
+**/node_modules
+
+# Python caches and build artifacts
+**/__pycache__
+*.pyc
+**/*.pyc
+.pytest_cache/
+tachion.egg-info/
+build/
+
+# Local dev junk not needed at runtime
+**/*.ipynb
+**/test.py
+test/
+imgs/
+notes/
+**/*.md
+
+# Model checkpoints and training logs: excluded to keep the context small;
+# the empty models/ dir is still copied, weights stay on the host
+lightning_logs/
+models/*
+
+# Frontend (built separately, not part of the backend image)
+frontend/
+
+# data/: the package code (.py) is needed in the image, but the datasets stay
+# on the host and are bind-mounted at runtime
+data/**
+!data/**/*.py
+
+# Docker files themselves
+Dockerfile
+frontend/Dockerfile
+docker-compose.yml
+.dockerignore

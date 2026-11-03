@@ -12,7 +12,8 @@
    - [DeepAR Explained](#deepar-explained)
    - [XGBoost Explained](#xgboost-explained)
 3. [Usage](#usage)
-   - [Running Locally](#running-locally)
+   - [Running via Docker](#running-via-docker)
+   - [Running Separately](#running-separately)
      - [1. Backend (API)](#1-backend-api)
      - [2. Frontend](#2-frontend)
      - [3. Training](#3-training)
@@ -67,9 +68,56 @@ See [this writeup](https://github.com/intelligent-username/Classification) for m
 
 The chief way to use Tachion is to go to [tachion.varak.dev](https://tachion.varak.dev) and use the hosted version.
 
-### Running Locally
+### Running via Docker
 
-To run the project locally, follow the brief instructions below. For detailed configuration and architecture, please refer to the READMEs in the respective subdirectories.
+The fastest way to get the full stack up.
+Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) (WSL2 engine).
+The backend image is CUDA-enabled and needs an NVIDIA GPU.
+
+Docker runs in two modes: production and a hot-reload dev profile.
+You pick one explicitly with `--profile prod` or `--profile dev`.
+
+#### Production
+
+Mode for real use. Runs the compiled frontend behind nginx plus the API.
+
+```bash
+# From project root
+docker compose --profile prod build
+docker compose --profile prod up -d
+```
+
+The frontend is at [`localhost:3000`](https://localhost:3000).
+The API is at [`localhost:8000`](https://localhost:8000) with docs at [`localhost:8000/docs`](https://localhost:8000/docs).
+`models/`, `data/`, and `lightning_logs/` are bind-mounted,
+so models retrained on the host are picked up by running containers.
+
+To stop: `docker compose --profile prod down`.
+To apply code changes: rerun the build, then `up -d`.
+
+#### Dev mode (hot reload)
+
+Mode for working on the code. It swaps in the Vite dev server plus a reloading API,
+so edits reach the browser instantly. Both modes bind ports 8000 and 3000,
+so stop the other one first.
+
+```bash
+# From project root
+docker compose down
+docker compose --profile dev up
+```
+
+- Backend edits (`api/`, `core/`, `train/`) auto-reload via watchfiles. No rebuild.
+- Frontend edits use Vite HMR at [`localhost:3000`](https://localhost:3000). No rebuild.
+
+Dependency installs in the images use [uv](https://docs.astral.sh/uv/), so rebuilds
+after dependency changes are fast. Source-only changes touch cheap layers.
+
+*See [docker-compose.yml](./docker-compose.yml) and [docker-compose.override.yml](./docker-compose.override.yml) for the full wiring.*
+
+### Running Separately
+
+Prefer bare-metal or developing the two pieces independently? Install dependencies first with [uv](https://docs.astral.sh/uv/): `uv sync` creates `.venv` from `pyproject.toml` (first run is large due to CUDA wheels). Dependencies are managed in `pyproject.toml`, not a `requirements.txt`.
 
 #### 1. Backend (API)
 
@@ -77,8 +125,14 @@ Powered by FastAPI. Handles model inference and data serving.
 
 ```bash
 # From project root
-uvicorn api.main:app --reload
+
+# Create the venv (.venv) from pyproject.toml; first run is large due to CUDA wheels
+uv sync
+
+uv run uvicorn api.main:app --reload
 ```
+
+Dependencies are managed in `pyproject.toml` (uv project mode), not a `requirements.txt`.
 
 *See [api/README.md](./api/README.md) for endpoint details.*
 
@@ -122,8 +176,9 @@ Below are some of the important files and folders in this project:
 Tachion/
 ├── LICENSE
 ├── README.md
-├── requirements.txt
 ├── pyproject.toml
+├── Dockerfile
+├── docker-compose.yml
 ├── .env                    # Make this & put your API keys here
 ├── api/                    # FastAPI backend
 │

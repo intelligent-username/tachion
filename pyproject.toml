@@ -8,10 +8,57 @@ version = "0.1.0"
 description = "Asset predictor with DeepAR and XGBoost"
 authors = [{name = "intelligent-username"}]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    # Backend
+    "fastapi==0.129.0",
+    "uvicorn==0.34.0",
+    "watchfiles==1.3.0",
+
+    # Models (torch CUDA 12.1 wheels resolve from the pytorch-cu121 index below)
+    "torch==2.5.1+cu121",
+    "pytorch-forecasting==1.6.1",
+    "gluonts[torch]==0.16.2",
+    "xgboost==3.2.0",
+    "scikit-learn==1.8.0",
+    "imbalanced-learn==0.14.1",
+    "orjson==3.11.7",
+    "rich==14.3.2",
+
+    # Data Handling
+    "pandas==2.3.3",
+    "pyarrow==23.0.0",
+    "openpyxl==3.1.5",
+
+    # API
+    "fredapi==0.5.2",
+    "yfinance==1.1.0",
+
+    # Testing
+    "pytest==9.0.2",
+
+    # Not directly used but just for compatibility
+    "numpy==2.1.3",
+
+    # Misc
+    "python-dotenv==1.2.1",
+
+    # Jupyter notebooks (.ipynb, which are ignored in pushes) files
+    "ipykernel==7.2.0",
+    "notebook==7.5.3",
+]
 
 [project.optional-dependencies]
 dev = ["pytest"]
 
 [tool.setuptools]
 packages = ["api", "core", "data", "train", "models", "data.equities"]
+
+# torch cu121 wheels only exist on the PyTorch index; keep PyPI
+# as the sole index for every other package via `explicit = true`.
+[tool.uv.sources]
+torch = { index = "pytorch-cu121" }
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true

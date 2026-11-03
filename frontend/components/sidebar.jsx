@@ -29,9 +29,10 @@ export default function Sidebar() {
     const isSearchEmpty = !searchTerm.trim()
     const hasPopulatedSeries = series.some(s => s.symbol)
 
-    // Mirror the focused chip's asset class when the edit target changes
+    // Mirror the focused chip's symbol and asset class when the edit target changes
     useEffect(() => {
         const focused = series.find(s => s.id === focusedSeriesId)
+        setSearchTerm(focused?.symbol ?? '')
         if (focused?.assetClass) setAssetClass(focused.assetClass)
     }, [focusedSeriesId])
 

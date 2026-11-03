@@ -75,11 +75,17 @@ Files from the `data` folder.
 
 ## Dependencies
 
-- `pytest` - Test framework
-- `pytest-cov` (optional) - FOr coverage reports
+- `pytest` - Test framework (a main dependency in `pyproject.toml`, installed by `uv sync`)
+- `pytest-cov` (optional) - For coverage reports
 
-Install test dependencies:
+Install dependencies:
 
 ```bash
-pip install pytest pytest-cov
+uv sync
+```
+
+Coverage reporting is optional; if you want it, add `pytest-cov` in the venv:
+
+```bash
+uv pip install pytest-cov
 ```
