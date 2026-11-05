@@ -112,6 +112,11 @@ function row(label, value) {
     return `<div><strong>${label}:</strong> ${value}</div>`
 }
 
+// Price is the headline metric: bigger font, shown before time
+function priceRow(value) {
+    return `<div class="chart-tooltip-price"><strong>Price:</strong> ${formatPrice(value)}</div>`
+}
+
 function escapeHtml(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -121,28 +126,33 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;')
 }
 
+// Returns [large price html, remaining rows html] so callers can interleave Time
 function candleRows(candle, chartMode) {
+    const price = priceRow(candle?.close)
+    let rest = ''
     if (chartMode === 'line') {
-        return row('Price', formatPrice(candle?.close)) +
+        rest = row('Volume', formatVolume(candle?.volume))
+    } else {
+        rest = row('Open', formatPrice(candle?.open)) +
+            row('High', formatPrice(candle?.high)) +
+            row('Low', formatPrice(candle?.low)) +
             row('Volume', formatVolume(candle?.volume))
     }
-    return row('Open', formatPrice(candle?.open)) +
-        row('High', formatPrice(candle?.high)) +
-        row('Low', formatPrice(candle?.low)) +
-        row('Close', formatPrice(candle?.close)) +
-        row('Volume', formatVolume(candle?.volume))
+    return [price, rest]
 }
 
-// Single series keeps the original markup and row order exactly.
+// Order: Price (larger first line), Time, Volume
 function buildSingleSeriesContent(renderer, idx, dateLabel, chartMode) {
-    return row('Time', dateLabel) + candleRows(renderer?.aligned?.[idx], chartMode)
+    const [price, rest] = candleRows(renderer?.aligned?.[idx], chartMode)
+    return price + row('Time', dateLabel) + rest
 }
 
 function buildSeriesBlock(renderer, idx, chart) {
     const color = renderer.colors?.line
+    const [price, rest] = candleRows(renderer.aligned?.[idx], chart.chartMode)
     let html = `<div style="border-left: 2px solid ${color}; padding-left: 6px; margin-top: 6px;">`
     html += `<div><strong>Symbol:</strong> <span style="color:${color}">${escapeHtml(renderer.symbol)}</span></div>`
-    html += candleRows(renderer.aligned?.[idx], chart.chartMode)
+    html += price + rest
 
     if (chart.showMovingAverage) {
         html += indicatorRow('MA', renderer.currentMaPoints, idx)

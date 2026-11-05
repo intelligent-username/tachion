@@ -4,6 +4,18 @@ import { useAppState } from '../js/state'
 import { TChart } from '../js/visualizer'
 import ChartLegend from './chart-legend'
 
+function shallowEqualStats(a, b) {
+    if (a === b) return true
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false
+    return a.every((row, i) => {
+        const other = b[i]
+        if (row === other) return true
+        if (!row || !other || typeof row !== typeof other) return false
+        const ra = Object.keys(row), rb = Object.keys(other)
+        return ra.length === rb.length && ra.every(k => row[k] === other[k])
+    })
+}
+
 export default function Graph() {
     const containerRef = useRef(null)
     const chartRef = useRef(null)
@@ -26,7 +38,11 @@ export default function Graph() {
     useEffect(() => {
         if (!containerRef.current || chartRef.current) return
 
-        const chart = new TChart(containerRef.current, { onStats: setLegendStats })
+        // Chart stats can be re-emitted with identical values (hover/resize);
+        // keep the same array reference so React skips pointless re-renders
+        const chart = new TChart(containerRef.current, {
+            onStats: stats => setLegendStats(prev => shallowEqualStats(prev, stats) ? prev : stats)
+        })
         chartRef.current = chart
         registerChart(chart)
 

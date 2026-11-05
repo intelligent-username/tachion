@@ -1,4 +1,7 @@
 // In-chart legend overlay for multi-series mode
+// Memoized: Graph re-renders on every loading/state flip; legend only needs updates
+// when its own props change, and this row build is the heavier part of each pass.
+import { memo } from 'react'
 const EMPTY_VALUE = '—'
 const MIN_PRICE_DECIMALS = 2
 const MAX_PRICE_DECIMALS = 6
@@ -79,7 +82,7 @@ function LegendRow({ row, isFocused, onRemove }) {
 	)
 }
 
-export default function ChartLegend({ stats, series, focusedSeriesId = null, onRemove }) {
+const ChartLegend = memo(function ChartLegend({ stats, series, focusedSeriesId = null, onRemove }) {
 	if (!Array.isArray(stats) || stats.length < 2) return null
 
 	const rows = mergeSeriesState(stats, series)
@@ -96,4 +99,6 @@ export default function ChartLegend({ stats, series, focusedSeriesId = null, onR
 			))}
 		</div>
 	)
-}
+})
+
+export default ChartLegend

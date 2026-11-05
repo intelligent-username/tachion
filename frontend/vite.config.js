@@ -6,7 +6,16 @@ const backendTarget = process.env.VITE_API_TARGET || 'http://127.0.0.1:8000'
 
 export default defineConfig({
     plugins: [react()],
+    // Ship modern JS only: less transpiled code, smaller bundle, faster parse
+    build: {
+        target: 'esnext'
+    },
     server: {
+        // Pre-transform the heavy chart modules while the dev server boots,
+        // so first page load isn't blocked by on-demand compiles
+        warmup: {
+            clientFiles: ['./js/visualizer/**/*.js', './components/*.jsx']
+        },
         port: 3000,
         proxy: {
             '/api': {

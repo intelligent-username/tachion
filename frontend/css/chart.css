@@ -46,6 +46,12 @@
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
+.chart-tooltip-price {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 0.15rem;
+}
+
 .chart-loading-overlay {
   position: absolute;
   inset: 0;
