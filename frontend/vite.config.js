@@ -11,6 +11,10 @@ export default defineConfig({
         target: 'esnext'
     },
     server: {
+        watch: {
+            usePolling: true,
+            interval: 300
+        },
         // Pre-transform the heavy chart modules while the dev server boots,
         // so first page load isn't blocked by on-demand compiles
         warmup: {

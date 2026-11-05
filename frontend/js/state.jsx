@@ -31,7 +31,16 @@ const initialState = {
     drawMovingAverage: false,
     drawExponentialMovingAverage: false,
     searchedHistory: {},
-    chartMode: 'bars'
+    chartMode: 'bars',
+    // Rows shown in the chart hover tooltip
+    tooltipFields: {
+        price: true,
+        time: true,
+        open: true,
+        high: true,
+        low: true,
+        volume: true
+    }
 }
 
 // Create context
@@ -468,6 +477,9 @@ export function StateProvider({ children }) {
         setChartMode: (chartMode) => patch({ chartMode }),
         setDrawMovingAverage: (drawMovingAverage) => patch({ drawMovingAverage }),
         setDrawExponentialMovingAverage: (drawExponentialMovingAverage) => patch({ drawExponentialMovingAverage }),
+        setTooltipField: (key, value) => patch({
+            tooltipFields: { ...state.tooltipFields, [key]: !!value }
+        }),
         setAsset,
         runPrediction,
         registerChart,

@@ -112,6 +112,14 @@ function row(label, value) {
     return `<div><strong>${label}:</strong> ${value}</div>`
 }
 
+// Tooltip row toggles come from the settings gear; default to all-on
+const DEFAULT_TOOLTIP_FIELDS = { price: true, time: true, open: true, high: true, low: true, volume: true }
+
+function tooltipField(chart, key) {
+    const value = chart.tooltipFields?.[key]
+    return value ?? DEFAULT_TOOLTIP_FIELDS[key]
+}
+
 // Price is the headline metric: bigger font, shown before time
 function priceRow(value) {
     return `<div class="chart-tooltip-price"><strong>Price:</strong> ${formatPrice(value)}</div>`
@@ -126,30 +134,27 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;')
 }
 
-// Returns [large price html, remaining rows html] so callers can interleave Time
-function candleRows(candle, chartMode) {
-    const price = priceRow(candle?.close)
+// Returns [price html, remaining rows html]; each row gated by the settings toggles
+function candleRows(candle, chart) {
+    const price = tooltipField(chart, 'price') ? priceRow(candle?.close) : ''
     let rest = ''
-    if (chartMode === 'line') {
-        rest = row('Volume', formatVolume(candle?.volume))
-    } else {
-        rest = row('Open', formatPrice(candle?.open)) +
-            row('High', formatPrice(candle?.high)) +
-            row('Low', formatPrice(candle?.low)) +
-            row('Volume', formatVolume(candle?.volume))
-    }
+    if (tooltipField(chart, 'open')) rest += row('Open', formatPrice(candle?.open))
+    if (tooltipField(chart, 'high')) rest += row('High', formatPrice(candle?.high))
+    if (tooltipField(chart, 'low')) rest += row('Low', formatPrice(candle?.low))
+    if (tooltipField(chart, 'volume')) rest += row('Volume', formatVolume(candle?.volume))
     return [price, rest]
 }
 
-// Order: Price (larger first line), Time, Volume
-function buildSingleSeriesContent(renderer, idx, dateLabel, chartMode) {
-    const [price, rest] = candleRows(renderer?.aligned?.[idx], chartMode)
-    return price + row('Time', dateLabel) + rest
+// Order: Price (larger first line), Time, remaining checked rows
+function buildSingleSeriesContent(renderer, idx, dateLabel, chart) {
+    const [price, rest] = candleRows(renderer?.aligned?.[idx], chart)
+    const time = tooltipField(chart, 'time') ? row('Time', dateLabel) : ''
+    return price + time + rest
 }
 
 function buildSeriesBlock(renderer, idx, chart) {
     const color = renderer.colors?.line
-    const [price, rest] = candleRows(renderer.aligned?.[idx], chart.chartMode)
+    const [price, rest] = candleRows(renderer.aligned?.[idx], chart)
     let html = `<div style="border-left: 2px solid ${color}; padding-left: 6px; margin-top: 6px;">`
     html += `<div><strong>Symbol:</strong> <span style="color:${color}">${escapeHtml(renderer.symbol)}</span></div>`
     html += price + rest
@@ -189,10 +194,10 @@ function buildTooltipContent(chart, idx, dateLabel) {
     const renderers = visibleRenderers(chart)
 
     if (renderers.length === 1) {
-        return buildSingleSeriesContent(renderers[0], idx, dateLabel, chart.chartMode)
+        return buildSingleSeriesContent(renderers[0], idx, dateLabel, chart)
     }
 
-    return row('Time', dateLabel) +
+    return (tooltipField(chart, 'time') ? row('Time', dateLabel) : '') +
         renderers.map(renderer => buildSeriesBlock(renderer, idx, chart)).join('')
 }
 

@@ -97,6 +97,65 @@
   pointer-events: none;
 }
 
+/* ── Tooltip settings (gear beside search bar) ──── */
+.tooltip-settings {
+  position: absolute;
+  top: -11px;
+  right: -11px;
+  z-index: 10;
+}
+
+.tooltip-settings-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
+}
+
+.tooltip-settings-btn:hover,
+.tooltip-settings-btn.is-open {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.tooltip-settings-btn:hover {
+  transform: scale(1.12);
+}
+
+.tooltip-settings-popover {
+  position: absolute;
+  top: 30px;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 9rem;
+  padding: 0.6rem 0.8rem;
+  background: var(--bg-input);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.tooltip-settings-popover .chart-checkbox {
+  display: flex;
+  padding: 0.1rem 0.2rem;
+}
+
+.tooltip-settings-popover .chart-checkbox span {
+  font-size: 0.85rem;
+}
+
 .predict-button {
   display: flex;
   justify-content: center;

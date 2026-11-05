@@ -5,6 +5,7 @@ import { ASSET_CLASSES, getAssetPlaceholder } from '../js/asset-classes'
 import { sanitizeSymbol } from '../js/symbol-utils'
 import InfoModal from './info-modal'
 import SeriesChips from './series-chips'
+import TooltipSettings from './tooltip-settings'
 
 export default function Sidebar() {
     const [searchTerm, setSearchTerm] = useState('')
@@ -91,6 +92,7 @@ export default function Sidebar() {
         <div className="sidebar">
             {showInfo && <InfoModal onClose={() => setShowInfo(false)} initialAsset={assetClass} />}
             <div className="search-section">
+                <TooltipSettings />
                 <button
                     className="info-btn"
                     onClick={() => setShowInfo(true)}

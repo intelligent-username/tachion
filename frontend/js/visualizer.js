@@ -15,7 +15,15 @@ const DEFAULT_OPTIONS = {
     timespan: 'max',
     chartMode: 'bars',
     showMovingAverage: false,
-    showExponentialMovingAverage: false
+    showExponentialMovingAverage: false,
+    tooltipFields: {
+        price: true,
+        time: true,
+        open: true,
+        high: true,
+        low: true,
+        volume: true
+    }
 }
 
 const BASE_OPACITIES = {
@@ -74,7 +82,7 @@ export class TChart {
         this._xTickLabelMap = new Map()
         this._xTickFormatter = null
         this.onStats = onStats ?? null
-        this.lastOptions = { ...DEFAULT_OPTIONS }
+        this.lastOptions = { ...DEFAULT_OPTIONS, tooltipFields: { ...DEFAULT_OPTIONS.tooltipFields } }
         this.lastWidth = 0
         this.lastHeight = 0
     }
@@ -127,6 +135,7 @@ export class TChart {
         this.chartMode = resolved.chartMode
         this.showMovingAverage = resolved.showMovingAverage
         this.showExponentialMovingAverage = resolved.showExponentialMovingAverage
+        this.tooltipFields = resolved.tooltipFields
 
         const prepared = prepareSeriesDescriptors(descriptors, resolved.timespan)
         const union = buildUnionDates(prepared)
@@ -260,7 +269,8 @@ function resolveRenderOptions(chart, options) {
         timespan: options.timespan ?? chart.lastOptions.timespan,
         chartMode: options.chartMode ?? chart.lastOptions.chartMode,
         showMovingAverage: !!(options.showMovingAverage ?? chart.lastOptions.showMovingAverage),
-        showExponentialMovingAverage: !!(options.showExponentialMovingAverage ?? chart.lastOptions.showExponentialMovingAverage)
+        showExponentialMovingAverage: !!(options.showExponentialMovingAverage ?? chart.lastOptions.showExponentialMovingAverage),
+        tooltipFields: options.tooltipFields ?? chart.lastOptions.tooltipFields
     }
 }
 

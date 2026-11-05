@@ -30,6 +30,7 @@ export default function Graph() {
         isLoading,
         loadingMessage,
         focusedSeriesId,
+        tooltipFields,
         registerChart,
         removeSeries
     } = useAppState()
@@ -64,10 +65,11 @@ export default function Graph() {
                 timespan,
                 chartMode,
                 showMovingAverage: drawMovingAverage,
-                showExponentialMovingAverage: drawExponentialMovingAverage
+                showExponentialMovingAverage: drawExponentialMovingAverage,
+                tooltipFields
             }
         )
-    }, [series, timespan, chartMode, drawMovingAverage, drawExponentialMovingAverage])
+    }, [series, timespan, chartMode, drawMovingAverage, drawExponentialMovingAverage, tooltipFields])
 
     // Apply predictions after the data render pass
     useEffect(() => {
