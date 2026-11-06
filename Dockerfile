@@ -16,14 +16,16 @@ WORKDIR /app
 # from PyPI). exported so pip (not just python -c) sees it. tomllib is stdlib
 # in 3.11, so python is available pre-install.
 # Install dependencies first so source edits don't invalidate the dep layer.
-# uv (Rust) replaces pip: 10-50x faster installs. tomllib (stdlib in 3.11)
-# extracts the pins from pyproject.toml, the single source of truth; the
-# cu121 index comes via --extra-index-url (uv doesn't read [tool.uv.index]
-# from the pyproject copy).
+# tomllib (stdlib in 3.11) extracts the pins from pyproject.toml, the single
+# source of truth; the cu121 index comes via --extra-index-url (uv doesn't
+# read [tool.uv.index] from the pyproject copy).
+# The wheel cache lives in a BuildKit cache mount so it survives layer-cache
+# eviction: even a cold rebuild reuses downloaded CUDA wheels (~4GB).
 COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /uvx /bin/
 COPY pyproject.toml ./
-RUN python -c "import tomllib; deps = tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']; open('/tmp/requirements.tmp', 'w').write('\n'.join(deps))" \
-    && uv pip install --system --no-cache --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cu121 -r /tmp/requirements.tmp \
+RUN --mount=type=cache,target=/root/.cache/uv \
+    python -c "import tomllib; deps = tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']; open('/tmp/requirements.tmp', 'w').write('\n'.join(deps))" \
+    && UV_CACHE_DIR=/root/.cache/uv uv pip install --system --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cu121 -r /tmp/requirements.tmp \
     && rm /tmp/requirements.tmp
 
 # Runtime sources only (data/ gets overlaid by a bind-mount volume in compose)

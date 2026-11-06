@@ -74,7 +74,7 @@ Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) (WSL2
 The backend image is CUDA-enabled and needs an NVIDIA GPU.
 
 Docker runs in two modes: production and a hot-reload dev profile.
-You pick one explicitly with `--profile prod` or `--profile dev`.
+Custom shortcuts are defined in your PowerShell profile (`docker dev`, `docker devstop`, `docker prod`).
 
 #### Production
 
@@ -82,8 +82,7 @@ Mode for real use. Runs the compiled frontend behind nginx plus the API.
 
 ```bash
 # From project root
-docker compose --profile prod build
-docker compose --profile prod up -d
+docker prod
 ```
 
 The frontend is at [`localhost:3000`](https://localhost:3000).
@@ -91,8 +90,8 @@ The API is at [`localhost:8000`](https://localhost:8000) with docs at [`localhos
 `models/`, `data/`, and `lightning_logs/` are bind-mounted,
 so models retrained on the host are picked up by running containers.
 
-To stop: `docker compose --profile prod down`.
-To apply code changes: rerun the build, then `up -d`.
+To stop: `docker devstop`.
+To apply code changes: rerun `docker prod`.
 
 #### Dev mode (hot reload)
 
@@ -102,12 +101,16 @@ so stop the other one first.
 
 ```bash
 # From project root
-docker compose down
-docker compose --profile dev up
+docker dev
 ```
 
 - Backend edits (`api/`, `core/`, `train/`) auto-reload. No rebuild.
 - Frontend edits hot-reload at [`localhost:3000`](https://localhost:3000). No rebuild.
+
+After changing dependencies in `pyproject.toml`, build once manually:
+`docker compose --profile dev build`.
+
+To stop: `docker devstop`.
 
 *See [docker-compose.yml](./docker-compose.yml) and [docker-compose.override.yml](./docker-compose.override.yml) for the full wiring.*
 
