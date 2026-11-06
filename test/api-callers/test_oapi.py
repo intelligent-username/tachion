@@ -3,15 +3,13 @@ Unit tests for the OANDA API wrapper
 Found in core/apis/oaapi.py
 """
 
-import pytest
-import datetime
 import json
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from core import OandaAPI, call_specific_oanda
-
 
 # ============================================================================
 # OandaAPI Tests

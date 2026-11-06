@@ -50,6 +50,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest"]
 
+[dependency-groups]
+dev = ["ruff"]
+
 [tool.setuptools]
 packages = ["api", "core", "data", "train", "models", "data.equities"]
 

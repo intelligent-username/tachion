@@ -4,8 +4,8 @@ Custom progress bar for PyTorch Lightning training.
 
 import sys
 import time
+
 from lightning.pytorch.callbacks import Callback
-from core.training.constants import TRAIN_LOG_INTERVAL
 
 HOLD_WIDTH = 100
 

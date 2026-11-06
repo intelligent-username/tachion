@@ -3,15 +3,14 @@ Unit tests for the Federal Reserve Economic Data API wrapper and caller.
 Functions in core/apis/frapi.py
 """
 
-import pytest
 import datetime
 import json
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from core import FredAPI, call_specific_fred
-
 
 # ============================================================================
 # FredAPI Tests
@@ -60,7 +59,7 @@ class TestFredAPI:
         start_date = datetime.datetime(2024, 1, 1)
         end_date = datetime.datetime(2024, 12, 31)
 
-        result = FredAPI(mock_fred, series_id="UNRATE", start_date=start_date, end_date=end_date)
+        FredAPI(mock_fred, series_id="UNRATE", start_date=start_date, end_date=end_date)
 
         mock_fred.get_series.assert_called_once()
         call_args = mock_fred.get_series.call_args
@@ -139,7 +138,7 @@ class TestFredAPI:
 
         mock_series = MagicMock()
         mock_series.empty = False
-        dt_with_tz = datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
+        dt_with_tz = datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC)
         mock_series.items.return_value = [(dt_with_tz, 5.5)]
         mock_fred.get_series.return_value = mock_series
 

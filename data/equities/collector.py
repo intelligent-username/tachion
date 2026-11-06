@@ -6,13 +6,11 @@ It then collects the past ~15000 lines of S&P500 index data.
 All data is written into CSVs in the raw/ directory.
 """
 
-import json
-import datetime
-import time
-from pathlib import Path
 from importlib import resources
+from pathlib import Path
 
 from core import call_specific_td
+
 
 def write_data_eq(symbols):
     """

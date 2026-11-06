@@ -3,32 +3,28 @@ Temporal Fusion Transformer (TFT) model wrapper using GluonTS.
 """
 
 from pathlib import Path
-from typing import Optional, List
 
 import torch
-from gluonts.torch.model.tft import TemporalFusionTransformerEstimator
-from lightning.pytorch.callbacks import ModelCheckpoint
-
-from core.training.progress import CleanProgressBar
-
 from core.training.constants import (
-    TFT_NUM_HEADS,
-    TFT_HIDDEN_DIM,
-    TFT_VARIABLE_DIM,
-    TFT_DROPOUT_RATE,
-    TFT_LEARNING_RATE,
-    TFT_WEIGHT_DECAY,
-    TFT_BATCH_SIZE,
-    TFT_NUM_BATCHES_PER_EPOCH,
-    TFT_EPOCHS,
     DEFAULT_DEVICE,
+    TFT_BATCH_SIZE,
+    TFT_DROPOUT_RATE,
+    TFT_EPOCHS,
+    TFT_HIDDEN_DIM,
+    TFT_LEARNING_RATE,
+    TFT_NUM_BATCHES_PER_EPOCH,
+    TFT_NUM_HEADS,
+    TFT_VARIABLE_DIM,
+    TFT_WEIGHT_DECAY,
 )
+from core.training.progress import CleanProgressBar
+from gluonts.torch.model.tft import TemporalFusionTransformerEstimator
 
 
 def create_tft_estimator(
     prediction_length: int,
     freq: str = "1H",
-    context_length: Optional[int] = None,
+    context_length: int | None = None,
     num_heads: int = TFT_NUM_HEADS,
     hidden_dim: int = TFT_HIDDEN_DIM,
     variable_dim: int = TFT_VARIABLE_DIM,
@@ -38,9 +34,9 @@ def create_tft_estimator(
     batch_size: int = TFT_BATCH_SIZE,
     num_batches_per_epoch: int = TFT_NUM_BATCHES_PER_EPOCH,
     epochs: int = TFT_EPOCHS,
-    quantiles: Optional[List[float]] = None,
+    quantiles: list[float] | None = None,
     device: str = DEFAULT_DEVICE,
-    checkpoint_dir: Optional[Path] = None,
+    checkpoint_dir: Path | None = None,
 ) -> TemporalFusionTransformerEstimator:
     """
     Create a configured TFT Estimator.

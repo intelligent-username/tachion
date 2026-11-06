@@ -25,22 +25,20 @@ Once processed, we'll write parquet files to the processed/ folder, which will c
 
 # Might have to implement "dynamic lagging" when increasing the prediction horizon.
 
-import pandas as pd
-import numpy as np
 import sys
-
-from core.processor.pw import ProgressWriter
-
 from importlib import resources
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 from core import (
+    add_date_features,
     log_return,
-    volume_change,
     moving_average,
     rolling_volatility,
-    add_date_features,
+    volume_change,
 )
+from core.processor.pw import ProgressWriter
 
 
 def load_company(symbol, package):

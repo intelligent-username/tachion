@@ -2,15 +2,13 @@
 Unit tests for core/apis/yfapi.py - Yahoo Finance API wrapper
 """
 
-import pytest
 import datetime
 import json
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from core import YFinanceAPI, call_specific_yf
-
 
 # ============================================================================
 # YFinanceAPI Tests
@@ -64,7 +62,7 @@ class TestYFinanceAPI:
         start_date = datetime.datetime(2024, 1, 1)
         end_date = datetime.datetime(2024, 12, 31)
 
-        result = YFinanceAPI(symbol="AAPL", start_date=start_date, end_date=end_date)
+        YFinanceAPI(symbol="AAPL", start_date=start_date, end_date=end_date)
 
         mock_ticker.history.assert_called_once()
         call_args = mock_ticker.history.call_args
@@ -83,7 +81,7 @@ class TestYFinanceAPI:
         mock_hist.iterrows.return_value = []
         mock_ticker.history.return_value = mock_hist
 
-        result = YFinanceAPI(symbol="AAPL", interval="1wk")
+        YFinanceAPI(symbol="AAPL", interval="1wk")
 
         call_args = mock_ticker.history.call_args
         assert call_args[1]["interval"] == "1wk"
@@ -138,7 +136,7 @@ class TestYFinanceAPI:
 
         mock_hist = MagicMock()
         mock_hist.empty = False
-        dt_with_tz = datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
+        dt_with_tz = datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC)
         mock_hist.iterrows.return_value = [
             (dt_with_tz, {
                 "Open": 100.0, "High": 101.0, "Low": 99.0,

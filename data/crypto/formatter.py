@@ -21,23 +21,19 @@ Creates the following features:
 Crypto trades 24/7, so intra-day seasonality is captured via hour_of_day.
 """
 
-import pandas as pd
-import numpy as np
 import sys
-
-from core.processor.pw import ProgressWriter
-
 from importlib import resources
 from pathlib import Path
 
+import pandas as pd
 from core import (
     log_return,
-    volume_change,
     moving_average,
     rolling_volatility,
+    volume_change,
 )
-
 from core.processor.dw import add_crypto_date_features
+from core.processor.pw import ProgressWriter
 
 
 def load_coin(symbol, package):

@@ -7,13 +7,13 @@ The nice thing is that a single call can return 100,000+ observations.
 FRED data is typically daily/monthly, so no pagination needed for 15 years.
 """
 
-import os
-import json
-import time
 import datetime
+import json
+import os
+import time
 
-from fredapi import Fred
 from dotenv import load_dotenv
+from fredapi import Fred
 
 load_dotenv()
 
@@ -164,5 +164,5 @@ def FredAPI(fred, series_id, start_date=None, end_date=None):
     except Exception as e:
         return {
             "status": "error",
-            "message": f"FRED API error: {str(e)}"
+            "message": f"FRED API error: {e!s}"
         }

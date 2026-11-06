@@ -2,7 +2,6 @@
 Unit tests for data/equities/collector.py
 """
 
-import pytest
 from unittest.mock import patch
 
 

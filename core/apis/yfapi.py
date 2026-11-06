@@ -2,10 +2,10 @@
 YFinance (Yahoo Finance) API Call Utils.
 """
 
-import os
-import json
-import time
 import datetime
+import json
+import os
+import time
 
 import yfinance as yf
 
@@ -166,5 +166,5 @@ def YFinanceAPI(symbol, start_date=None, end_date=None, interval="1d"):
     except Exception as e:
         return {
             "status": "error",
-            "message": f"YFinance API error: {str(e)}"
+            "message": f"YFinance API error: {e!s}"
         }

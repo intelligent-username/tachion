@@ -2,12 +2,12 @@
 Twelve Data API Call Utils
 """
 
-import os
-import requests
 import datetime
 import json
+import os
 import time
 
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()

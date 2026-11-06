@@ -3,12 +3,12 @@ Binance API Call Utils
 Note that Cryptos trade 24/7, so we need more total lines to cover ~5 years
 """
 
-import os
-import requests
 import datetime
 import json
+import os
 import time
 
+import requests
 
 # For consistent API calls, I'm still going to use 30 minute intervals
 # But don't want to type it as milliseconds
@@ -249,15 +249,15 @@ def BinanceAPI(url="https://api.binance.com/api/v3/klines",
     except requests.exceptions.HTTPError as e:
         return {
             "status": "error",
-            "message": f"HTTP error: {str(e)}"
+            "message": f"HTTP error: {e!s}"
         }
     except requests.exceptions.RequestException as e:
         return {
             "status": "error",
-            "message": f"Request error: {str(e)}"
+            "message": f"Request error: {e!s}"
         }
     except Exception as e:
         return {
             "status": "error",
-            "message": f"Unexpected error: {str(e)}"
+            "message": f"Unexpected error: {e!s}"
         }

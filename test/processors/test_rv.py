@@ -3,12 +3,9 @@ Unit tests for rolling volatility calculations
 In core/processor/rv.py
 """
 
-import pytest
 import numpy as np
 import pandas as pd
-
 from core import rolling_volatility
-
 
 # ============================================================================
 # rolling_volatility Tests

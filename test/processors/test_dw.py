@@ -3,12 +3,8 @@ Unit tests for date/time feature engineering
 In core/processor/dw.py
 """
 
-import pytest
-import numpy as np
 import pandas as pd
-
-from core import add_date_features, add_crypto_date_features
-
+from core import add_crypto_date_features, add_date_features
 
 # ============================================================================
 # add_date_features Tests

@@ -2,13 +2,14 @@
 Collect VIX data from FRED and compute daily log changes.
 """
 
-import os
-import json
 import datetime
+import json
 import math
+import os
 from pathlib import Path
-from fredapi import Fred
+
 from dotenv import load_dotenv
+from fredapi import Fred
 
 load_dotenv()
 

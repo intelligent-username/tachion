@@ -5,25 +5,21 @@ This is significantly faster than GluonTS TFT due to pre-batched data pipelines.
 """
 
 from pathlib import Path
-from typing import Optional, List
 
-import torch
 import lightning.pytorch as pl
-from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
-
-from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet
-from pytorch_forecasting.metrics import QuantileLoss
-
+import torch
 from core.training.constants import (
-    TFT_NUM_HEADS,
-    TFT_HIDDEN_DIM,
-    TFT_DROPOUT_RATE,
-    TFT_LEARNING_RATE,
-    TFT_EPOCHS,
     DEFAULT_DEVICE,
-    TRAIN_LOG_INTERVAL,
+    TFT_DROPOUT_RATE,
+    TFT_EPOCHS,
+    TFT_HIDDEN_DIM,
+    TFT_LEARNING_RATE,
+    TFT_NUM_HEADS,
 )
 from core.training.progress import CleanProgressBar
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet
+from pytorch_forecasting.metrics import QuantileLoss
 
 
 def create_tft_pf_model(
@@ -32,7 +28,7 @@ def create_tft_pf_model(
     attention_head_size: int = TFT_NUM_HEADS,
     dropout: float = TFT_DROPOUT_RATE,
     lr: float = TFT_LEARNING_RATE,
-    quantiles: Optional[List[float]] = None,
+    quantiles: list[float] | None = None,
 ) -> TemporalFusionTransformer:
     """
     Create a pytorch-forecasting TFT model from a dataset.
@@ -58,7 +54,7 @@ def create_tft_pf_model(
 def create_trainer(
     epochs: int = TFT_EPOCHS,
     device: str = DEFAULT_DEVICE,
-    checkpoint_dir: Optional[Path] = None,
+    checkpoint_dir: Path | None = None,
     gradient_clip_val: float = 0.5,
 ) -> pl.Trainer:
     """

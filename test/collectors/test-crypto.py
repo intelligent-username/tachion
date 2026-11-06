@@ -2,10 +2,7 @@
 Unit tests for data/crypto/collector.py
 """
 
-import pytest
-import os
-import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 
 class TestCryptoCollector:

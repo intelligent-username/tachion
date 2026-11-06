@@ -3,13 +3,12 @@ Model checkpointing utilities (DeepAR).
 """
 
 from pathlib import Path
-from typing import Optional
 
 import torch
 from gluonts.model.predictor import Predictor
 
 
-def load_checkpoint(checkpoint_path: str) -> Optional[dict]:
+def load_checkpoint(checkpoint_path: str) -> dict | None:
     """
     
     checkpoint_path: Path to .pth file

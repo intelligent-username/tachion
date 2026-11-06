@@ -3,9 +3,10 @@ Shared utilities for training configuration and interactive CLI.
 """
 
 import sys
-from typing import Dict, Any
+from typing import Any
 
-def set_training_defaults(defaults: Dict[str, Any]) -> Dict[str, Any]:
+
+def set_training_defaults(defaults: dict[str, Any]) -> dict[str, Any]:
     """
     Update training configuration from defaults and CLI arguments.
 

@@ -3,15 +3,14 @@ Unit tests for the Binance API wrapper
 In core/apis/biapi.py
 """
 
-import pytest
 import datetime
 import json
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
+import pytest
 from core import BinanceAPI, call_specific_binance
-
 
 # ============================================================================
 # BinanceAPI Tests

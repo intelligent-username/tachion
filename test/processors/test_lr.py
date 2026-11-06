@@ -3,12 +3,9 @@ Unit tests for log return and volume change calculations
 In core/processor/lr.py
 """
 
-import pytest
 import numpy as np
 import pandas as pd
-
 from core import log_return, volume_change
-
 
 # ============================================================================
 # log_return Tests

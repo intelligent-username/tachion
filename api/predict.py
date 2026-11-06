@@ -5,10 +5,10 @@ API endpoints for the frontend.
 2) POST /api/predict - Same payload format support for compatibility
 """
 
-import sys
 import datetime
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +30,7 @@ def _parse_datetime(value: str) -> datetime.datetime:
     try:
         dt = datetime.datetime.fromisoformat(text)
         if dt.tzinfo is not None:
-            dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+            dt = dt.astimezone(datetime.UTC).replace(tzinfo=None)
         return dt
     except ValueError:
         pass
@@ -89,7 +89,7 @@ def _extract_last_close(candles: list[dict[str, Any]]) -> float:
 def _prediction_end_bound(now: datetime.datetime) -> datetime.datetime:
     close_time = datetime.time(16, 0)
     today_close = datetime.datetime.combine(now.date(), close_time)
-    return now if now < today_close else today_close
+    return min(today_close, now)
 
 
 def _build_prediction_response(symbol: str, asset_class: str, candles: list[dict[str, Any]]) -> PredictResponse:

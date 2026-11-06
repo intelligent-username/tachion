@@ -3,12 +3,12 @@ OANDA API Call Utils
 For Forex and Commodity data collection - 10 years and 15 years of historical data respectively
 """
 
-import os
-import requests
 import datetime
 import json
+import os
 import time
 
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -41,7 +41,7 @@ def call_specific_oanda(path, instruments, num_calls, rate_limit=30, json_indent
     second_start = time.time()
 
     for instrument in instruments:
-        curr_time = datetime.datetime.now(datetime.timezone.utc)
+        curr_time = datetime.datetime.now(datetime.UTC)
         details = []
 
         # OANDA returns max 5000 candles per call
@@ -92,7 +92,7 @@ def call_specific_oanda(path, instruments, num_calls, rate_limit=30, json_indent
 
                 # Move to_time back before the oldest candle in batch
                 oldest_dt = datetime.datetime.strptime(batch[0]["datetime"], "%Y-%m-%d %H:%M:%S")
-                curr_time = oldest_dt.replace(tzinfo=datetime.timezone.utc) - datetime.timedelta(minutes=1)
+                curr_time = oldest_dt.replace(tzinfo=datetime.UTC) - datetime.timedelta(minutes=1)
 
                 # Progress indicator every 10 calls
                 if (i + 1) % 10 == 0:
@@ -120,7 +120,7 @@ def call_specific_oanda(path, instruments, num_calls, rate_limit=30, json_indent
 
             fmt = "%Y-%m-%d %H:%M:%S"
             last_dt = datetime.datetime.strptime(existing_data[-1]["datetime"], fmt)
-            from_time = last_dt.replace(tzinfo=datetime.timezone.utc) + datetime.timedelta(minutes=1)
+            from_time = last_dt.replace(tzinfo=datetime.UTC) + datetime.timedelta(minutes=1)
 
             new_data = []
 
@@ -161,7 +161,7 @@ def call_specific_oanda(path, instruments, num_calls, rate_limit=30, json_indent
 
                 # Update from_time to after the newest candle
                 newest_dt = datetime.datetime.strptime(batch[-1]["datetime"], fmt)
-                from_time = newest_dt.replace(tzinfo=datetime.timezone.utc) + datetime.timedelta(minutes=1)
+                from_time = newest_dt.replace(tzinfo=datetime.UTC) + datetime.timedelta(minutes=1)
 
                 if len(batch) < 5000:
                     break
@@ -260,7 +260,7 @@ def OandaAPI(url_base="https://api-fxpractice.oanda.com/v3/instruments",
                 
             time_str = candle["time"]
             # Parse RFC3339 format
-            dt = datetime.datetime.fromisoformat(time_str.replace("Z", "+00:00"))
+            dt = datetime.datetime.fromisoformat(time_str)
             
             mid = candle.get("mid", {})
             
@@ -281,12 +281,12 @@ def OandaAPI(url_base="https://api-fxpractice.oanda.com/v3/instruments",
     except requests.exceptions.HTTPError as e:
         return {
             "status": "error",
-            "message": f"HTTP error: {str(e)}"
+            "message": f"HTTP error: {e!s}"
         }
     except requests.exceptions.RequestException as e:
         return {
             "status": "error",
-            "message": f"Request error: {str(e)}"
+            "message": f"Request error: {e!s}"
         }
     except ValueError:
         raise

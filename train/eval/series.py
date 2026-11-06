@@ -9,9 +9,10 @@ Examples:
     python -m train.eval.evaluate forex deepar
 """
 
-from pathlib import Path
 import sys
 import warnings
+from pathlib import Path
+
 import numpy as np
 import torch
 
@@ -25,17 +26,20 @@ warnings.filterwarnings("ignore", message=".*Consider setting.*persistent_worker
 # Use Tensor Cores efficiently on supported GPUs
 torch.set_float32_matmul_precision("medium")
 
-from gluonts.evaluation import make_evaluation_predictions, Evaluator
-
-from train.load.loader import load_gluonts_dataset, load_pf_dataset, get_asset_freq, ASSET_CONFIG
-from train.definitions.tft_pf import TFTPFPredictor
 from core import load_predictor
 from core.training.constants import (
-    TFT_PREDICTION_LENGTH,
-    TFT_CONTEXT_LENGTH,
     DEEPAR_PREDICTION_LENGTH,
     DEFAULT_ASSET,
     DEFAULT_MODEL,
+    TFT_CONTEXT_LENGTH,
+    TFT_PREDICTION_LENGTH,
+)
+from gluonts.evaluation import Evaluator, make_evaluation_predictions
+
+from train.definitions.tft_pf import TFTPFPredictor
+from train.load.loader import (
+    load_gluonts_dataset,
+    load_pf_dataset,
 )
 
 
@@ -124,7 +128,7 @@ def evaluate_tft2_model(
     if not model_path.exists():
         raise FileNotFoundError(f"Model not found: {model_path}")
     
-    print(f"Loading dataset for model reconstruction...")
+    print("Loading dataset for model reconstruction...")
     training_ds, validation_ds = load_pf_dataset(
         asset_type=asset,
         prediction_length=prediction_length,
@@ -218,7 +222,7 @@ def evaluate(
     
     # Print results
     print(f"\n{'='*60}")
-    print(f"  RESULTS")
+    print("  RESULTS")
     print(f"{'='*60}")
     print(f"\n  Directional Accuracy: {metrics['directional_accuracy']:.2f}%")
     print(f"  ({metrics['correct_predictions']:,} / {metrics['total_predictions']:,} correct)")

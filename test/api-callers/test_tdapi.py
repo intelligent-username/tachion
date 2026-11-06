@@ -2,15 +2,13 @@
 Unit tests for core/apis/tdapi.py - TwelveData API wrapper
 """
 
-import pytest
 import datetime
-import json
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from core import TwelveDataAPI, call_specific_td
-
 
 # ============================================================================
 # TwelveDataAPI Tests

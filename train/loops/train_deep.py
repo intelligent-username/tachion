@@ -14,13 +14,13 @@ Examples:
     python -m train.loops.train_deep forex deepar -n  # DeepAR on forex
 """
 
-from pathlib import Path
 import os
-import time
 import sys
+import time
 import traceback
+from pathlib import Path
+
 import torch
-import numpy as np
 
 torch.set_float32_matmul_precision('medium')
 torch.backends.cudnn.benchmark = True
@@ -33,45 +33,45 @@ try:
 except (ImportError, ValueError):
     pass  # Not on Linux or can't change limit
 
-from gluonts.evaluation import make_evaluation_predictions, Evaluator
+from core import save_predictor, set_training_defaults
+from core.training.constants import (
+    DEEPAR_BATCH_SIZE,
+    DEEPAR_CONTEXT_LENGTH,
+    DEEPAR_EPOCHS,
+    DEEPAR_LEARNING_RATE,
+    DEEPAR_NUM_BATCHES_PER_EPOCH,
+    # DeepAR
+    DEEPAR_PREDICTION_LENGTH,
+    DEFAULT_ASSET,
+    # Shared
+    DEFAULT_DEVICE,
+    DEFAULT_MODEL,
+    TFT_BATCH_SIZE,
+    TFT_CONTEXT_LENGTH,
+    TFT_EPOCHS,
+    TFT_HIDDEN_DIM,
+    TFT_LEARNING_RATE,
+    TFT_NUM_BATCHES_PER_EPOCH,
+    # TFT
+    TFT_PREDICTION_LENGTH,
+)
+from gluonts.evaluation import Evaluator, make_evaluation_predictions
 
 from train.definitions.deep import create_deepar_estimator
 from train.definitions.tft import create_tft_estimator
-from train.definitions.tft_pf import create_tft_pf_model, create_trainer, TFTPFPredictor
-from train.load.loader import load_gluonts_dataset, load_pf_dataset, get_asset_freq
-from core import set_training_defaults, save_predictor
-from core.training.constants import (
-    # DeepAR
-    DEEPAR_PREDICTION_LENGTH,
-    DEEPAR_CONTEXT_LENGTH,
-    DEEPAR_BATCH_SIZE,
-    DEEPAR_NUM_BATCHES_PER_EPOCH,
-    DEEPAR_EPOCHS,
-    DEEPAR_LEARNING_RATE,
-    # TFT
-    TFT_PREDICTION_LENGTH,
-    TFT_CONTEXT_LENGTH,
-    TFT_HIDDEN_DIM,
-    TFT_BATCH_SIZE,
-    TFT_NUM_BATCHES_PER_EPOCH,
-    TFT_EPOCHS,
-    TFT_LEARNING_RATE,
-    # Shared
-    DEFAULT_DEVICE,
-    DEFAULT_ASSET,
-    DEFAULT_MODEL,
-)
+from train.definitions.tft_pf import TFTPFPredictor, create_tft_pf_model, create_trainer
+from train.load.loader import get_asset_freq, load_gluonts_dataset, load_pf_dataset
 
 
 def train(
     asset: str = DEFAULT_ASSET,
     model: str = DEFAULT_MODEL,
-    prediction_length: int = None,
-    context_length: int = None,
-    batch_size: int = None,
-    num_batches_per_epoch: int = None,
-    epochs: int = None,
-    lr: float = None,
+    prediction_length: int | None = None,
+    context_length: int | None = None,
+    batch_size: int | None = None,
+    num_batches_per_epoch: int | None = None,
+    epochs: int | None = None,
+    lr: float | None = None,
     device: str = DEFAULT_DEVICE,
 ):
     """Train a time series model for specified asset type."""
@@ -229,7 +229,7 @@ def train(
     
     print(f"\nStarting training ({epochs} epochs, {num_batches_per_epoch} batches/epoch)...")
     print(f"  DataLoader workers: {num_workers}")
-    print(f"  Prefetch factor: 2\n")
+    print("  Prefetch factor: 2\n")
     train_start = time.time()
     predictor = None
     

@@ -11,7 +11,7 @@ import TrendlinesTitle from './components/chart-title'
 import ChartToolbar from './components/chart-toolbar'
 import './styles.css'
 
-function App() {
+export function App() {
 	return (
 		<StateProvider>
 			<Header />

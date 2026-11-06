@@ -23,8 +23,7 @@ ASSET_TO_DATA_DIR = {
 
 def normalize_symbol(symbol: str) -> str:
     text = (symbol or '').strip()
-    if text.startswith('$'):
-        text = text[1:]
+    text = text.removeprefix('$')
     return text
 
 
@@ -145,7 +144,7 @@ def parse_timestamp(ts) -> datetime.datetime | None:
     try:
         dt = datetime.datetime.fromisoformat(text)
         if dt.tzinfo is not None:
-            dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+            dt = dt.astimezone(datetime.UTC).replace(tzinfo=None)
         return dt
     except ValueError:
         pass

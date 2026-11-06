@@ -3,12 +3,9 @@ Unit tests for moving average calculations
 In core/processor/ma.py
 """
 
-import pytest
 import numpy as np
 import pandas as pd
-
 from core import moving_average
-
 
 # ============================================================================
 # moving_average Tests

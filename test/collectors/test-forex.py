@@ -2,7 +2,6 @@
 Unit tests for data/forex/collector.py
 """
 
-import pytest
 from unittest.mock import patch
 
 

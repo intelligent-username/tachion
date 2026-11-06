@@ -1,12 +1,9 @@
 """PyTorch-Forecasting data loader."""
 
-from typing import Tuple
 
-import numpy as np
 
+from .common import get_feature_columns, load_parquet_as_dataframe, prepare_dataframe
 from .config import ASSET_CONFIG
-from .common import load_parquet_as_dataframe, get_feature_columns, prepare_dataframe
-
 
 try:
     from pytorch_forecasting import TimeSeriesDataSet
@@ -22,7 +19,7 @@ def load_pf_dataset(
     asset_type: str,
     prediction_length: int = 24,
     context_length: int = 48,
-) -> Tuple:
+) -> tuple:
     """
     Load data as pytorch-forecasting TimeSeriesDataSet.
     

@@ -22,6 +22,7 @@ services:
       - ./data:/app/data
       - ./models:/app/models
       - ./lightning_logs:/app/lightning_logs
+      - ./test:/app/test:ro
     restart: unless-stopped
     healthcheck:
       # slim image lacks curl; use stdlib urllib instead

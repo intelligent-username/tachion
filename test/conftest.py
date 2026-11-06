@@ -2,9 +2,10 @@
 Pytest configuration and fixtures
 """
 
-import pytest
 import os
 import sys
+
+import pytest
 
 # Ensure the project root is in the path for imports
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

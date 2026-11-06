@@ -2,8 +2,7 @@
 Unit tests for data/interest/collector.py
 """
 
-import pytest
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import MagicMock, mock_open, patch
 
 
 @patch('data.interest.collector.call_specific_fred')

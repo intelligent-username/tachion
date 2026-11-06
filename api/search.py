@@ -1,6 +1,3 @@
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
-from pydantic import BaseModel
-
 from core.processor.ip import (
     InferenceProcessorError,
     background_preprocess_ticker,
@@ -8,6 +5,8 @@ from core.processor.ip import (
     get_historical_data,
     slice_values_by_timespan,
 )
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from pydantic import BaseModel
 
 router = APIRouter()
 

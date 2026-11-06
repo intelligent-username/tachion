@@ -7,13 +7,11 @@ BTC will be used as a lagging covariate for broader market crypto conditions.
 
 # Careful in the model definition to not let BTC leak future information into other cryptos
 
-import json
-import datetime
-import time
-from pathlib import Path
 from importlib import resources
+from pathlib import Path
 
 from core import call_specific_binance
+
 
 def write_data_cr(symbols):
     """

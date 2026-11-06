@@ -1,10 +1,8 @@
 """GluonTS data loader."""
 
-from typing import List, Tuple
 
-import pandas as pd
 import numpy as np
-
+import pandas as pd
 from gluonts.dataset.common import ListDataset
 
 # Try to import CachingDataset for in-memory caching
@@ -14,15 +12,15 @@ try:
 except ImportError:
     HAS_CACHING = False
 
+from .common import extract_features, get_feature_columns, load_parquet_as_dataframe
 from .config import ASSET_CONFIG
-from .common import load_parquet_as_dataframe, get_feature_columns, extract_features
 
 
 def load_gluonts_dataset(
     asset_type: str,
     prediction_length: int = 24,
     val_split: float = 0.1,
-) -> Tuple[ListDataset, ListDataset]:
+) -> tuple[ListDataset, ListDataset]:
     """
     Load parquet data and convert to GluonTS ListDataset format.
     
@@ -142,6 +140,6 @@ def load_gluonts_dataset(
     if HAS_CACHING:
         train_ds = CachingDataset(train_ds)
         test_ds = CachingDataset(test_ds)
-        print(f"  Dataset caching: ENABLED")
+        print("  Dataset caching: ENABLED")
     
     return train_ds, test_ds

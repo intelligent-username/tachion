@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+
 import pandas as pd
 
 
@@ -99,7 +100,6 @@ def process_interest_features(raw_dir, out_path):
 
 
 if __name__ == "__main__":
-    from importlib import resources
 
     pkg = __package__  # e.g., 'data.interest'
     raw_dir = Path(__file__).resolve().parent / "raw"

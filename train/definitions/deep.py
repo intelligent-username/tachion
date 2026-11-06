@@ -3,33 +3,29 @@ DeepAR model wrapper using GluonTS.
 """
 
 from pathlib import Path
-from typing import Optional
 
 import torch
-from gluonts.torch.model.deepar import DeepAREstimator
-from gluonts.torch.distributions import StudentTOutput
-from lightning.pytorch.callbacks import ModelCheckpoint
-
-from core.training.progress import CleanProgressBar
-
 from core.training.constants import (
-    DEEPAR_NUM_LAYERS,
-    DEEPAR_HIDDEN_SIZE,
-    DEEPAR_DROPOUT_RATE,
-    DEEPAR_LEARNING_RATE,
-    DEEPAR_WEIGHT_DECAY,
     DEEPAR_BATCH_SIZE,
-    DEEPAR_NUM_BATCHES_PER_EPOCH,
+    DEEPAR_DROPOUT_RATE,
     DEEPAR_EPOCHS,
+    DEEPAR_HIDDEN_SIZE,
+    DEEPAR_LEARNING_RATE,
+    DEEPAR_NUM_BATCHES_PER_EPOCH,
+    DEEPAR_NUM_LAYERS,
     DEEPAR_NUM_PARALLEL_SAMPLES,
+    DEEPAR_WEIGHT_DECAY,
     DEFAULT_DEVICE,
 )
+from core.training.progress import CleanProgressBar
+from gluonts.torch.distributions import StudentTOutput
+from gluonts.torch.model.deepar import DeepAREstimator
 
 
 def create_deepar_estimator(
     prediction_length: int,
     freq: str = "1H",
-    context_length: Optional[int] = None,
+    context_length: int | None = None,
     num_layers: int = DEEPAR_NUM_LAYERS,
     hidden_size: int = DEEPAR_HIDDEN_SIZE,
     dropout_rate: float = DEEPAR_DROPOUT_RATE,
@@ -40,7 +36,7 @@ def create_deepar_estimator(
     epochs: int = DEEPAR_EPOCHS,
     num_parallel_samples: int = DEEPAR_NUM_PARALLEL_SAMPLES,
     device: str = DEFAULT_DEVICE,
-    checkpoint_dir: Optional[Path] = None,
+    checkpoint_dir: Path | None = None,
 ) -> DeepAREstimator:
     """
     Create a configured DeepAREstimator with Student-t distribution.

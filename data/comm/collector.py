@@ -6,11 +6,8 @@ Calls the OANDA API to collect ~10 years of historical commodity data
 for Gold, Silver, and Oil.
 """
 
-import json
-import datetime
-import time
-from pathlib import Path
 from importlib import resources
+from pathlib import Path
 
 from core import call_specific_oanda
 

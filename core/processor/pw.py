@@ -4,6 +4,7 @@ Progress Writer
 
 import sys
 
+
 def ProgressWriter(done: int, total) -> None:
     """Render a single-line green progress bar."""
     bar_width = 30

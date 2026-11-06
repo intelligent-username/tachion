@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 // Proxy target: http://backend-dev:8000 inside dev Docker, host default otherwise
@@ -6,6 +6,9 @@ const backendTarget = process.env.VITE_API_TARGET || 'http://127.0.0.1:8000'
 
 export default defineConfig({
     plugins: [react()],
+    test: {
+        environment: 'jsdom',
+    },
     // Ship modern JS only: less transpiled code, smaller bundle, faster parse
     build: {
         target: 'esnext'

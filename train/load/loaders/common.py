@@ -1,10 +1,9 @@
 """Shared utilities for data loading."""
 
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from .config import ASSET_CONFIG
 
@@ -50,9 +49,9 @@ def load_parquet_as_dataframe(asset_type: str) -> pd.DataFrame:
 
 
 def get_feature_columns(
-    config: Dict,
+    config: dict,
     df: pd.DataFrame,
-) -> Tuple[List[str], List[str], List[str]]:
+) -> tuple[list[str], list[str], list[str]]:
     """
     Get feature columns that exist in the dataframe.
     
@@ -68,7 +67,7 @@ def get_feature_columns(
 
 def prepare_dataframe(
     df: pd.DataFrame,
-    config: Dict,
+    config: dict,
     target_col: str,
 ) -> pd.DataFrame:
     """
@@ -124,10 +123,10 @@ def prepare_dataframe(
 
 def extract_features(
     group_df: pd.DataFrame,
-    known_reals: List[str],
-    known_categoricals: List[str],
-    unknown_reals: List[str],
-) -> Tuple[np.ndarray, np.ndarray]:
+    known_reals: list[str],
+    known_categoricals: list[str],
+    unknown_reals: list[str],
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Extract feature arrays from a group dataframe.
     

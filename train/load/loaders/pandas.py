@@ -1,11 +1,10 @@
 """Pandas-based data loader."""
 
-from typing import Tuple
 
 from gluonts.dataset.pandas import PandasDataset
 
-from .config import ASSET_CONFIG
 from .common import load_parquet_as_dataframe
+from .config import ASSET_CONFIG
 
 
 def load_pandas_dataset(

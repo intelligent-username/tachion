@@ -9,6 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
 
 # Install dependencies first so source edits don't invalidate the pip layer.
 # PIP_EXTRA_INDEX_URL is used instead of [tool.uv.index] because pip does not
@@ -22,11 +23,10 @@ WORKDIR /app
 # The wheel cache lives in a BuildKit cache mount so it survives layer-cache
 # eviction: even a cold rebuild reuses downloaded CUDA wheels (~4GB).
 COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /uvx /bin/
-COPY pyproject.toml ./
+COPY pyproject.toml uv.lock* ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    python -c "import tomllib; deps = tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']; open('/tmp/requirements.tmp', 'w').write('\n'.join(deps))" \
-    && UV_CACHE_DIR=/root/.cache/uv uv pip install --system --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cu121 -r /tmp/requirements.tmp \
-    && rm /tmp/requirements.tmp
+    UV_CACHE_DIR=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Runtime sources only (data/ gets overlaid by a bind-mount volume in compose)
 COPY api/ api/

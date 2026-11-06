@@ -6,14 +6,14 @@ Trains XGBoost with Focal Loss and SMOTE
 Saves model to models/
 """
 
-import pandas as pd
-import numpy as np
 from pathlib import Path
-from sklearn.model_selection import train_test_split
+
+import numpy as np
+import pandas as pd
+from core import set_training_defaults
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
 
 from train.definitions.xg import InterestRateClassifier
-from core import set_training_defaults
 
 
 def load_data():
@@ -103,7 +103,7 @@ def train(
     # Evaluate
     print("\nEvaluating on test set...")
     y_pred = model.predict(X_test)
-    y_proba = model.predict_proba(X_test)
+    model.predict_proba(X_test)
     
     print("\nClassification Report:")
     print(classification_report(y_test, y_pred))
