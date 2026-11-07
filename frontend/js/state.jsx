@@ -1,9 +1,10 @@
 // Global state management using React Context.
 // setState is stable, so the local patch helpers below can be plain functions
 // without affecting callback identities or closure semantics.
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react'
 import { fetchHistory, fetchPrediction, sendSearch } from './api'
 import { prepareCandles } from './visualizer/visualizer-data'
+import { loadOverlayPrefs, saveOverlayPrefs } from './prefs'
 
 // UI cap for series slots; actions still iterate the array
 export const MAX_SERIES = 2
@@ -81,10 +82,14 @@ function resolveLegacyTarget(series, focused, primary, symbol, assetClass) {
 
 // Provider component
 export function StateProvider({ children }) {
-    const [state, setState] = useState(initialState)
+    const [state, setState] = useState(() => ({ ...initialState, ...loadOverlayPrefs() }))
     const prefetchInFlight = useRef(new Set())
     const chartInstanceRef = useRef(null)
     const requestTokens = useRef({})
+
+    useEffect(() => {
+        saveOverlayPrefs(state.drawBollingerBands, state.drawVolatilityBands)
+    }, [state.drawBollingerBands, state.drawVolatilityBands])
 
     // Generic shallow patch of the global state
     const patch = (update) => setState(prev => ({
@@ -477,6 +482,8 @@ export function StateProvider({ children }) {
         setChartMode: (chartMode) => patch({ chartMode }),
         setDrawMovingAverage: (drawMovingAverage) => patch({ drawMovingAverage }),
         setDrawExponentialMovingAverage: (drawExponentialMovingAverage) => patch({ drawExponentialMovingAverage }),
+        setDrawBollingerBands: (drawBollingerBands) => patch({ drawBollingerBands: !!drawBollingerBands }),
+        setDrawVolatilityBands: (drawVolatilityBands) => patch({ drawVolatilityBands: !!drawVolatilityBands }),
         setTooltipField: (key, value) => patch({
             tooltipFields: { ...state.tooltipFields, [key]: !!value }
         }),
