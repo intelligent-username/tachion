@@ -1,24 +1,27 @@
-// Descriptions of the enabled chart overlays.
-import { memo } from 'react'
+// Descriptions and return statistics for the enabled chart overlays.
+import { memo, useId } from 'react'
 
 const ChartLegend = memo(function ChartLegend({ stats = [] }) {
-    const overlays = new Map()
-    for (const row of stats) {
-        for (const [kind, label, status] of [
-            ['classic', row.classicLabel, row.classicStatus],
-            ['calibrated', row.volatilityLabel, row.volatilityStatus],
-        ]) {
-            if (label) overlays.set(`${kind}:${label}:${status || ''}`, { kind, label, status })
-        }
-    }
-    if (!overlays.size) return null
+    const id = useId()
+    const overlays = [
+        { kind: 'classic', labelKey: 'classicLabel', returnKey: 'classicReturn' },
+        { kind: 'calibrated', labelKey: 'volatilityLabel', returnKey: 'volatilityReturn' },
+    ].map(overlay => ({ ...overlay, rows: stats.filter(row => row[overlay.labelKey]) }))
+        .filter(overlay => overlay.rows.length)
+    if (!overlays.length) return null
     return (
         <div className="chart-legend" aria-label="Chart bands">
-            <div className="chart-legend-overlays" aria-live="polite">
-                {[...overlays.values()].map(({ kind, label, status }) => (
-                    <div key={`${kind}:${label}:${status || ''}`} className={`chart-legend-overlay is-${kind}`}>
-                        <span>{label}</span>
-                        {status && <span className="chart-band-status">{status}</span>}
+            <div className="chart-legend-overlays">
+                {overlays.map(({ kind, labelKey, returnKey, rows }) => (
+                    <div key={kind} className={`chart-legend-overlay is-${kind}`}>
+                        <button type="button" className="chart-legend-label" aria-describedby={`${id}-${kind}`}>
+                            {rows[0][labelKey]}
+                        </button>
+                        <span id={`${id}-${kind}`} role="tooltip" className="chart-legend-tooltip">
+                            {rows.map(row => (
+                                <span key={row.id}>{rows.length > 1 ? `${row.symbol || 'Asset'}: ` : ''}{row[returnKey] || 'Not enough completed exits'}</span>
+                            ))}
+                        </span>
                     </div>
                 ))}
             </div>

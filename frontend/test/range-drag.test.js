@@ -125,3 +125,41 @@ it('drops a range that contains fewer than two candles', () => {
     expect(chart.selectedRange).toBeNull()
     expect(chart.unionDates).toHaveLength(50)
 })
+
+it('honors MA/EMA toggles while a zoomed range is active', () => {
+    chart = new TChart(container)
+    const range = { start: data[10].timestamp.getTime(), end: data[30].timestamp.getTime() }
+
+    chart.renderSeries(series(), {
+        range,
+        showMovingAverage: true,
+        showExponentialMovingAverage: true
+    })
+    const enabled = chart.series[0]
+    expect(enabled.native.length).toBeLessThan(data.length)
+    expect(enabled.indicators.maLine.attr('opacity')).toBe('0.55')
+    expect(enabled.indicators.emaLine.attr('opacity')).toBe('0.55')
+    expect(enabled.indicators.maLine.attr('d')).toBeTruthy()
+    expect(enabled.indicators.emaLine.attr('d')).toBeTruthy()
+
+    chart.renderSeries(series(), {
+        range,
+        showMovingAverage: false,
+        showExponentialMovingAverage: false
+    })
+    expect(chart.series[0].indicators.maLine.attr('opacity')).toBe('0')
+    expect(chart.series[0].indicators.emaLine.attr('opacity')).toBe('0')
+})
+
+it('honors band toggles while a zoomed range is active', () => {
+    chart = new TChart(container)
+    const range = { start: data[10].timestamp.getTime(), end: data[30].timestamp.getTime() }
+
+    chart.renderSeries(series(), { range, showBollingerBands: true })
+    expect(chart.series[0].bandPoints.bollinger.length).toBeGreaterThan(0)
+    expect(chart.series[0].bands.bollinger.upper.attr('d')).toBeTruthy()
+
+    chart.renderSeries(series(), { range, showBollingerBands: false })
+    expect(chart.series[0].bandPoints.bollinger).toHaveLength(0)
+    expect(chart.series[0].bands.bollinger.upper.attr('d')).toBeNull()
+})

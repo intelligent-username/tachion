@@ -27,7 +27,7 @@ const verbose = options.has('v') || options.has('--verbose');
 const fix = options.has('fix');
 const selected = [...options].find((option) => Object.hasOwn(suites, option))
   ?? (options.has('--frontend') ? 'frontend' : options.has('--backend') ? 'backend' : options.has('--lint') ? 'lint' : undefined);
-const names = selected ? [selected] : ['frontend', 'backend'];
+const names = selected && selected !== 'lint' ? [selected] : ['frontend', 'backend'];
 if (names.some((name) => !Object.hasOwn(suites, name)) || [...options].some((option) => !['frontend', 'backend', 'lint', '--frontend', '--backend', '--lint', 'v', '--verbose', 'fix'].includes(option))) {
   process.stderr.write('Usage: node scripts/run-tests.mjs [--frontend|--backend|--lint] [v] [fix]\n');
   process.exit(2);

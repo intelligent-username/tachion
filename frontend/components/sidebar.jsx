@@ -92,7 +92,6 @@ export default function Sidebar() {
         <div className="sidebar">
             {showInfo && <InfoModal onClose={() => setShowInfo(false)} initialAsset={assetClass} />}
             <div className="search-section">
-                <TooltipSettings />
                 <button
                     className="info-btn"
                     onClick={() => setShowInfo(true)}
@@ -123,17 +122,20 @@ export default function Sidebar() {
                     </svg>
                 </div>
 
-                <select
-                    id="asset-select"
-                    value={assetClass}
-                    onChange={(e) => setAssetClass(e.target.value)}
-                    disabled={isLoading}
-                    className="asset-select"
-                >
-                    {ASSET_CLASSES.map(({ id, label }) => (
-                        <option key={id} value={id}>{label}</option>
-                    ))}
-                </select>
+                <div className="asset-row">
+                    <select
+                        id="asset-select"
+                        value={assetClass}
+                        onChange={(e) => setAssetClass(e.target.value)}
+                        disabled={isLoading}
+                        className="asset-select"
+                    >
+                        {ASSET_CLASSES.map(({ id, label }) => (
+                            <option key={id} value={id}>{label}</option>
+                        ))}
+                    </select>
+                    <TooltipSettings />
+                </div>
             </div>
 
             <SeriesChips

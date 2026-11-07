@@ -69,6 +69,24 @@
   cursor: pointer;
 }
 
+/* Asset class select + tooltip settings gear sit flush in one row */
+.asset-row {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  width: 85%;
+  margin-top: 0.75rem;
+}
+
+.asset-row select {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
 .search-section input:focus,
 .search-section select:focus {
   outline: none;
@@ -97,27 +115,28 @@
   pointer-events: none;
 }
 
-/* ── Tooltip settings (gear beside search bar) ──── */
+/* ── Tooltip settings (dropdown beside asset select) ── */
 .tooltip-settings {
-  position: absolute;
-  top: -11px;
-  right: -11px;
+  position: relative;
   z-index: 10;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
 }
 
 .tooltip-settings-btn {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1.5px solid var(--border);
-  background: var(--bg-input);
-  color: var(--text-muted);
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 2.5rem;
+  min-width: 0;
   padding: 0;
-  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
+  background: var(--bg-input);
+  color: var(--text-main);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: 0.3s;
 }
 
 .tooltip-settings-btn:hover,
@@ -127,19 +146,22 @@
   color: #fff;
 }
 
-.tooltip-settings-btn:hover {
-  transform: scale(1.12);
+.tooltip-settings-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 6px rgba(231, 76, 60, 0.2);
 }
 
 .tooltip-settings-popover {
   position: absolute;
-  top: 30px;
-  right: 0;
+  top: calc(100% + 2px);
+  left: 0;
+  right: auto;
   z-index: 20;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  min-width: 9rem;
+  min-width: 8.5rem;
   padding: 0.6rem 0.8rem;
   background: var(--bg-input);
   border: 2px solid var(--border);

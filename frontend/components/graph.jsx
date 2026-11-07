@@ -85,7 +85,6 @@ export default function Graph() {
 
     const hasAnyData = series.some(s => (s.data?.length ?? 0) > 0)
     const hasSymbol = series.some(s => s.symbol)
-    const coverageRows = legendStats.filter(row => row.classicReturn || row.volatilityReturn)
 
     return (
         <>
@@ -105,18 +104,7 @@ export default function Graph() {
                     </div>
                 )}
             </div>
-            {coverageRows.length > 0 && (
-                <div className="chart-band-footer" aria-live="polite" aria-atomic="true">
-                    {coverageRows.map(row => (
-                        <p key={row.id}>
-                            <strong>{row.symbol || 'Asset'}: </strong>
-                            {row.volatilityReturn && `Calibrated bands: ${row.volatilityReturn}.`}
-                            {row.volatilityReturn && row.classicReturn && ' '}
-                            {row.classicReturn && `Bollinger bands: ${row.classicReturn}.`}
-                        </p>
-                    ))}
-                </div>
-            )}
+
         </>
     )
 }
