@@ -114,36 +114,6 @@
   height: 100%;
 }
 
-.chart-subpanel-toggle {
-  display: block;
-  width: 100%;
-  min-height: 44px;
-  padding: 0.5rem;
-  border: 0;
-  border-top: 1px solid var(--border);
-  background: rgba(12, 18, 37, 0.72);
-  color: var(--text-main);
-  font: 600 0.75rem var(--font-main, system-ui, sans-serif);
-  text-align: left;
-  line-height: 1.35;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.chart-subpanel-toggle:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.chart-subpanel-toggle:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -3px;
-}
-
-.chart-subpanel-toggle:disabled {
-  color: #a0a0a0;
-  cursor: default;
-}
-
 .chart-band-footer {
   margin-top: 0.5rem;
   color: #b7bdc8;

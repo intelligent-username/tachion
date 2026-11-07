@@ -1,6 +1,5 @@
 // Hover interactivity: line highlighting, crosshair, tooltip content/positioning
 import * as d3 from 'd3'
-import { bandStatus } from './visualizer-indicators'
 
 const HOVER_DISTANCE_PX = 14
 const DIM_OPACITY = 0.15
@@ -196,8 +195,6 @@ function bandRows(renderer, idx, chart) {
         if (point?.provisional && Number.isFinite(point.lower) && Number.isFinite(point.upper)) {
             html += '<div class="chart-tooltip-band-status">Hovered Vol Bands are uncalibrated; coverage is not established.</div>'
         }
-        const status = bandStatus(renderer.bandData)
-        if (status) html += `<div class="chart-tooltip-band-status"><strong>Latest calibration:</strong> ${escapeHtml(status)}</div>`
     }
     return html
 }

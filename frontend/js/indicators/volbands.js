@@ -18,8 +18,8 @@ function initialVariance(bar) {
     return range * range / (4 * Math.LN2) + intraday * intraday
 }
 
-function interval(basis, variance, quantiles, horizon = 1) {
-    const sigma = Math.max(Math.sqrt(variance), SIGMA_FLOOR) * Math.sqrt(horizon)
+function interval(basis, variance, quantiles) {
+    const sigma = Math.max(Math.sqrt(variance), SIGMA_FLOOR)
     const lower = basis * Math.exp(quantiles[0] * sigma)
     const upper = basis * Math.exp(quantiles[1] * sigma)
     return Number.isFinite(lower) && Number.isFinite(upper) && lower > 0 && upper >= lower
@@ -31,25 +31,12 @@ function quantilesFor(window, coverage) {
     return [window.quantile(tail), window.quantile(1 - tail)]
 }
 
-function fanFor(summary, params) {
-    if (!summary || summary.stats.usableBars < 2 || !Number.isFinite(summary.variance)) return null
-    const fan = { upper: [], lower: [], bars: params.fanBars }
-    for (let i = 1; i <= params.fanBars; i++) {
-        const band = interval(summary.close, summary.variance, summary.quantiles, i)
-        if (!band) return null
-        fan.lower.push(band.lower)
-        fan.upper.push(band.upper)
-    }
-    return fan
-}
-
 /** Causal rolling state shared by batch calculations and transactional appends. */
 export class VolBandsCalculator {
     constructor(ctx, params = VOLBANDS_CFG) {
         if (!Number.isInteger(params.quantileWindow) || params.quantileWindow < 1
             || !Number.isInteger(params.yangZhangWindow) || params.yangZhangWindow < 2
-            || !(params.coverage > 0 && params.coverage < 1)
-            || !Number.isInteger(params.fanBars) || params.fanBars < 0) {
+            || !(params.coverage > 0 && params.coverage < 1)) {
             throw new RangeError('Invalid volatility-band parameters')
         }
         this.ctx = ctx
@@ -138,7 +125,7 @@ export class VolBandsCalculator {
         const seed = this.estimator instanceof YangZhangRoller ? this.params.yangZhangWindow : SEED_RETURNS
         // Count bars to the first mature historical interval, not to the first
         // full residual window: that window completes one observation earlier.
-        return { ...this.output, fan: fanFor(summary, this.params), stats: { ...stats },
+        return { ...this.output, stats: { ...stats },
             meta: { minimumBars: 2, warmup: seed + this.params.quantileWindow + 2 } }
     }
 
@@ -163,12 +150,12 @@ export class VolBandsCalculator {
 }
 
 /** Progressive causal intervals; mature empirical math is unchanged.
- * `provisional[i]` labels each historical interval. `stats` and `fan` describe
+ * `provisional[i]` labels each historical interval. `stats` describes
  * the requested endpoint; coverage includes only emitted mature intervals.
  * @param {Array<{open:number,high:number,low:number,close:number}>} bars
  * @param {{assetClass:string}} ctx
  * @param {typeof VOLBANDS_CFG} [params]
- * @returns {{basis:(number|null)[],upper:(number|null)[],lower:(number|null)[],quantiles:([number,number]|null)[],provisional:boolean[],fan:object|null,stats:{realizedCoverage:number|null,targetCoverage:number,calibratedBars:number,coverageBars:number,usableBars:number,isProvisional:boolean,status:string},meta:{minimumBars:number,warmup:number}}}
+ * @returns {{basis:(number|null)[],upper:(number|null)[],lower:(number|null)[],quantiles:([number,number]|null)[],provisional:boolean[],stats:{realizedCoverage:number|null,targetCoverage:number,calibratedBars:number,coverageBars:number,usableBars:number,isProvisional:boolean,status:string},meta:{minimumBars:number,warmup:number}}}
  */
 export function computeVolBands(bars, ctx, params = VOLBANDS_CFG) {
     const calculator = new VolBandsCalculator(ctx, params)

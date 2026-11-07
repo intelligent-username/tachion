@@ -38,12 +38,12 @@ const OVERLAY_CHECKBOXES = [
 	{
 		stateKey: 'drawBollingerBands', setterKey: 'setDrawBollingerBands',
 		label: 'Bollinger Bands (Classic)',
-		description: 'Bounds sit two standard deviations around an internal average of up to 20 closes; the average is not plotted. With 2-19 usable closes, bands are provisional estimates from available ticks. This price envelope is not a forecast and does not predict reversals. Bars are 30 minutes. Provider adjustments may differ; thin markets can be noisy.'
+		description: 'Uses data at least three bars old. Bounds sit two standard deviations around an internal average of up to 20 closes; the average is not plotted. With 2-19 usable closes, bands are provisional estimates from available ticks. This price envelope is not a forecast and does not predict reversals. Bars are 30 minutes. Provider adjustments may differ; thin markets can be noisy.'
 	},
 	{
 		stateKey: 'drawVolatilityBands', setterKey: 'setDrawVolatilityBands',
 		label: 'Calibrated Vol Bands',
-		description: 'Recent price swings estimate a possible next-bar range from available usable ticks. Short histories use provisional estimates while calibration builds toward a 500-bar sample; 95% target coverage is not guaranteed. The widening 13-bar fan is approximate beyond the next bar. Bars are 30 minutes. Provider adjustments, news and thin markets can change results. Informational only, not advice.'
+		description: 'Uses data at least three bars old to show a lagged volatility range. Coverage statistics describe the original one-bar model, not these lagged ranges. Short histories use provisional estimates while calibration builds toward a 500-bar sample; 95% target coverage is not guaranteed. Bars are 30 minutes. Provider adjustments, news and thin markets can change results. Informational only, not advice.'
 	}
 ]
 

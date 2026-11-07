@@ -39,7 +39,7 @@ export function bandStatus(cached) {
     }
     if (status === 'degenerate') return 'Band too narrow to measure (degenerate).'
     if (realizedCoverage == null) return 'Calibrating — awaiting next-bar coverage.'
-    return `Band captured the price ${(realizedCoverage * 100).toFixed(1)}% of the time in the last ${coverageBars} evaluated bars.`
+    return `One-bar model captured the price ${(realizedCoverage * 100).toFixed(1)}% of the time in the last ${coverageBars} evaluated bars.`
 }
 
 // Simple moving average with a truncated window at the start of the series

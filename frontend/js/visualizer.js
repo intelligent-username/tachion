@@ -10,10 +10,8 @@ import { applyLineOpacities, bindHover } from './visualizer/visualizer-hover'
 import { animatePrediction as drawPredictionOverlay, predictionPoints, resetPredictionOverlays } from './visualizer/visualizer-prediction'
 import { createSeriesRenderer, removeSeriesRenderer } from './visualizer/visualizer-series'
 import { resolveSeriesColors } from './visualizer/visualizer-colors'
-import { getBandIndicators, bandStatus } from './visualizer/visualizer-indicators'
-import { bandPoints, drawBandPaths, drawHistoricalBands } from './visualizer/visualizer-bands'
-import { fanPoints, drawFan } from './visualizer/visualizer-fan'
-import { resolveSubpanelLayout, drawSubpanels, clearSubpanels } from './visualizer/visualizer-subpanels'
+import { getBandIndicators } from './visualizer/visualizer-indicators'
+import { bandPoints, drawBandPaths, drawHistoricalBands, fiveBarReturnRate } from './visualizer/visualizer-bands'
 
 const DEFAULT_OPTIONS = {
     timespan: 'max',
@@ -82,8 +80,6 @@ export class TChart {
         this.unionIndexByTime = new Map()
         this.xScale = d3.scaleLinear()
         this.appliedPredictions = {}
-        this.percentBCollapsed = null
-        this.subpanelLayout = { panels: [] }
         this.baseDates = []
         this.currentMaxX = 1
         this._xTickValues = []
@@ -111,12 +107,7 @@ export class TChart {
         const fullHeight = Math.max(MIN_FULL_HEIGHT, rect.height)
 
         this.width = Math.max(MIN_PLOT_SIZE, fullWidth - this.margin.left - this.margin.right)
-        this.subpanelLayout = resolveSubpanelLayout(this, {
-            fullWidth,
-            availableHeight: Math.max(MIN_PLOT_SIZE, fullHeight - this.margin.top - this.margin.bottom),
-            minPriceHeight: MIN_PLOT_SIZE
-        })
-        this.height = this.subpanelLayout.priceHeight
+        this.height = Math.max(MIN_PLOT_SIZE, fullHeight - this.margin.top - this.margin.bottom)
 
         this.rootSvg.attr('viewBox', `0 0 ${fullWidth} ${fullHeight}`)
 
@@ -125,7 +116,7 @@ export class TChart {
         for (const renderer of this.series) {
             renderer.yScale.range([this.height, 0])
         }
-        this.xAxis.attr('transform', `translate(0,${this.subpanelLayout.xAxisY})`)
+        this.xAxis.attr('transform', `translate(0,${this.height})`)
         this.rightYAxis.attr('transform', `translate(${this.width},0)`)
         this.hoverRect
             .attr('x', 0)
@@ -215,7 +206,6 @@ export class TChart {
 
     destroy() {
         this.resizeObserver?.disconnect()
-        clearSubpanels(this)
         for (const renderer of this.series) removeSeriesRenderer(this, renderer)
         this.tooltip?.remove()
         d3.select(this.container).selectAll('*').remove()
@@ -395,14 +385,12 @@ function updateAxisState(chart) {
     chart._xTickFormatter = ticks.xTickFormatter
 }
 
-// History, fan and model forecasts share the same index-to-pixel mapping.
+// History and model forecasts share the same index-to-pixel mapping.
 function resolveMaxExtendedX(chart) {
     let maxX = Math.max(1, chart.unionDates.length - 1)
     for (const renderer of chart.series) {
-        for (const points of [renderer.bandPoints?.fan, renderer.predictionPoints]) {
-            const endpoint = points?.[points.length - 1]?.x
-            if (Number.isFinite(endpoint)) maxX = Math.max(maxX, endpoint)
-        }
+        const endpoint = renderer.predictionPoints?.[renderer.predictionPoints.length - 1]?.x
+        if (Number.isFinite(endpoint)) maxX = Math.max(maxX, endpoint)
     }
     return maxX
 }
@@ -419,8 +407,7 @@ function drawChart(chart) {
         const eligible = renderer.native.length && renderer.assetClass !== 'interest'
         renderer.bandPoints = {
             bollinger: eligible && chart.showBollingerBands ? bandPoints(renderer, 'bollinger') : [],
-            volatility: eligible && chart.showVolatilityBands ? bandPoints(renderer, 'volatility') : [],
-            fan: eligible ? fanPoints(renderer, chart) : []
+            volatility: eligible && chart.showVolatilityBands ? bandPoints(renderer, 'volatility') : []
         }
         renderer.predictionPoints = predictionPoints(renderer, chart.appliedPredictions[renderer.id])
         applyNativeYDomain(renderer)
@@ -429,7 +416,6 @@ function drawChart(chart) {
     chart.xScale.domain([0, chart.currentMaxX])
     drawAxes(chart, { tickValues: chart._xTickValues, labelMap: chart._xTickLabelMap })
     drawPreparedSeries(chart)
-    drawSubpanels(chart)
     chart.hoveredLine = null
     chart.hoverLine.attr('opacity', 0)
     chart.tooltip.style('opacity', 0)
@@ -457,14 +443,12 @@ function clearEmptyChart(chart) {
     chart.hoverRect.on('mousemove', null).on('mouseleave', null)
     chart.currentMaxX = 1
     chart.xScale.domain([0, 1])
-    clearSubpanels(chart)
     chart.onStats?.([])
 }
 
 // Draw the layers a renderer's visibility level leaves enabled.
 function drawRendererLayers(chart, renderer) {
     drawHistoricalBands(renderer, chart)
-    drawFan(renderer, chart)
     if ((renderer.hiddenLevel ?? 0) >= 1) {
         clearMainGraph(renderer)
     } else if (chart.chartMode === 'line') {
@@ -529,18 +513,14 @@ function overlayStats(renderer, chart) {
     const showVolatility = eligible && chart.showVolatilityBands
     const cached = renderer.bandData
     const volatility = cached?.volatility?.stats
-    const volatilityText = showVolatility ? bandStatus(cached) : ''
-    const offTarget = showVolatility && !volatility?.isProvisional && volatility?.status === 'ready' &&
-        Number.isFinite(volatility.realizedCoverage) &&
-        Math.abs(volatility.realizedCoverage - volatility.targetCoverage) > 0.03
+
     return {
-        classicLabel: showClassic ? 'BB - descriptive price envelope' : '',
+        classicLabel: showClassic ? 'BB - 3-bar lagged price envelope' : '',
         classicStatus: showClassic ? classicStatus(cached) : '',
-        volatilityLabel: showVolatility ? `${volatility?.isProvisional ? 'Vol Bands - provisional' : 'Calibrated Vol Bands - possible'} next-bar range${cached?.volatility?.fan ? ' (+13-bar approximate fan)' : ''}` : '',
-        volatilityStatus: volatilityText,
-        coverageText: volatilityText,
-        coverageOffTarget: !!offTarget,
-        coverageWarning: offTarget ? `Observed coverage differs from ${(volatility.targetCoverage * 100).toFixed(0)}% by more than 3 percentage points.` : ''
+        volatilityLabel: showVolatility ? `${volatility?.isProvisional ? 'Vol Bands - provisional' : 'Calibrated Vol Bands'} 3-bar lagged range` : '',
+        volatilityStatus: '',
+        classicReturn: showClassic ? returnText(fiveBarReturnRate(renderer, 'bollinger')) : '',
+        volatilityReturn: showVolatility ? returnText(fiveBarReturnRate(renderer, 'volatility')) : ''
     }
 }
 
@@ -559,4 +539,8 @@ function classicStatus(cached) {
     return result?.stats?.isProvisional
         ? `Early estimate from ${usable} usable closes; full window is ${window}.`
         : ''
+}
+
+function returnText({ exits, percentage }) {
+    return exits ? `${percentage.toFixed(0)}% returned within 5 bars (${exits} exits)` : 'Not enough completed exits'
 }

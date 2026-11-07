@@ -1,6 +1,8 @@
-// One geometry primitive for both historical envelopes and the forward fan.
+// Geometry primitives for historical envelopes.
 import * as d3 from 'd3'
 
+// Both displayed envelopes use information at least three native bars old.
+export const BAND_LAG_BARS = 3
 export const BAND_COLORS = { bollinger: '#4393c3', volatility: '#d6604d' }
 
 /** Create passive band paths below the candle layer. */
@@ -43,8 +45,16 @@ export function bandPoints(renderer, kind) {
         if (!candle) return null
         const index = cached.indexByTime.get(candle.date.getTime())
         if (index == null) return null
-        return { x: candle._i, lower: result.lower[index], upper: result.upper[index],
-            percentB: result.percentB?.[index] ?? null, provisional: result.provisional[index] }
+        // Volatility intervals also validate their own bar, so shift the whole
+        // result to keep every input at least three native bars behind.
+        const sourceIndex = index - BAND_LAG_BARS
+        if (sourceIndex < 0) return null
+        const lower = result.lower[sourceIndex]
+        const upper = result.upper[sourceIndex]
+        const percentB = kind === 'bollinger' && Number.isFinite(candle.close)
+            && Number.isFinite(lower) && Number.isFinite(upper)
+            ? (upper === lower ? 0.5 : (candle.close - lower) / (upper - lower)) : null
+        return { x: candle._i, lower, upper, percentB, provisional: result.provisional[sourceIndex] }
     })
 }
 
@@ -53,4 +63,26 @@ export function drawHistoricalBands(renderer, chart) {
     for (const kind of ['bollinger', 'volatility']) {
         drawBandPaths(renderer.bands[kind], renderer.bandPoints?.[kind] ?? [], chart.xScale, renderer.yScale)
     }
+}
+
+/** Count each exit once, using only completed five-bar follow-up windows. */
+export function fiveBarReturnRate(renderer, kind) {
+    const points = renderer.bandPoints?.[kind] ?? []
+    const bars = renderer.native.map(candle => {
+        const index = renderer.bandData?.indexByTime.get(candle.date.getTime())
+        const close = index == null ? null : renderer.bandData.bars[index]?.close
+        const point = points[candle._i]
+        if (!Number.isFinite(close) || !Number.isFinite(point?.lower) || !Number.isFinite(point?.upper)) return null
+        return close >= point.lower && close <= point.upper
+    })
+    let exits = 0
+    let returns = 0
+    for (let i = 1; i < bars.length; i++) {
+        if (bars[i - 1] !== true || bars[i] !== false) continue
+        const followup = bars.slice(i + 1, i + 6)
+        if (followup.length < 5 || followup.some(value => value === null)) continue
+        exits++
+        if (followup.includes(true)) returns++
+    }
+    return { exits, returns, percentage: exits ? 100 * returns / exits : null }
 }

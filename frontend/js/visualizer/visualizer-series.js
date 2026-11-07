@@ -16,8 +16,7 @@ export function createSeriesRenderer(root, { id, index, colors }) {
         .attr('data-series-id', id).style('pointer-events', 'none')
     const bandPaths = {
         bollinger: createBandPaths(bands, 'bollinger', colors.dash),
-        volatility: createBandPaths(bands, 'volatility', colors.dash),
-        fan: createBandPaths(bands, 'volatility', colors.dash)
+        volatility: createBandPaths(bands, 'volatility', colors.dash)
     }
     const candles = root.seriesCandlesLayer.append('g')
         .attr('class', 'series-candles')

@@ -28,14 +28,13 @@ export function initChartSvg(container) {
     const svg = rootSvg.append('g')
 
     // Stable z-order: grid, bands, candles, price, indicators, predictions,
-    // supporting strips, axes, hover.
+    // axes, hover.
     const gridLayer = svg.append('g').attr('class', 'grid-layer')
     const bandLayer = svg.append('g').attr('class', 'band-layer')
     const seriesCandlesLayer = svg.append('g').attr('class', 'series-candles-layer')
     const seriesPriceLayer = svg.append('g').attr('class', 'series-price-layer')
     const indicatorLayer = svg.append('g').attr('class', 'indicator-layer')
     const predictionLayer = svg.append('g').attr('class', 'prediction-layer')
-    const subpanelLayer = svg.append('g').attr('class', 'subpanel-layer')
 
     const axisLayer = svg.append('g').attr('class', 'axis-layer')
 
@@ -71,7 +70,7 @@ export function initChartSvg(container) {
     return {
         chartId, rootSvg, defs, svg,
         gridLayer, bandLayer, seriesCandlesLayer, seriesPriceLayer,
-        indicatorLayer, predictionLayer, subpanelLayer, axisLayer,
+        indicatorLayer, predictionLayer, axisLayer,
         xAxis, leftYAxis, rightYAxis,
         hoverLayer, hoverLine, hoverRect, tooltip
     }
