@@ -8,6 +8,7 @@ const GLOBAL_NOTES = [
     "Market close times (for commodities, equities, and FOREX) cap how much data is available to show.",
     "Some requests simply don't have enough data. For example JPY to INR conversion will have such little volume that no meaningful uses are servable.",
     "The MA checkbox draws the 30-candlestick moving average for the given time series.",
+    "Informational only. Tachion's bands describe past prices. Bollinger Bands are a price envelope, not a forecast, and do not predict reversals. Calibrated Vol Bands show a possible range if recent behavior repeats. Their width and past hit rate can change abruptly around news and illiquidity. Nothing here is investment advice, and no indicator shown has been shown to beat buy-and-hold after costs.",
     "By default, data goes back a maximum of roughly ~5 years for equities and crypto, ~15 years for FOREX, and ~16 years for commodities. For interest rates, we have many more years of data. The reason the data span is capped is because the primary purpose is to make predictions, and very old financial information has no bearing on today\'s movements.",
     "Disclaimer: all retrieved timeseries data will be on a 30-minute OHCLV basis in order to maintain consistency with the models.",
     "Disclaimer: selecting the 'max' timeframe is likely to cause major lag.",

@@ -34,8 +34,23 @@ const CHECKBOXES = [
 	{ stateKey: 'drawExponentialMovingAverage', setterKey: 'setDrawExponentialMovingAverage', label: 'EMA', css: 'ema-checkbox', ariaLabel: 'Exponential Moving Average' },
 ]
 
+const OVERLAY_CHECKBOXES = [
+	{
+		stateKey: 'drawBollingerBands', setterKey: 'setDrawBollingerBands',
+		label: 'Bollinger Bands (Classic)',
+		description: 'An average of the last 20 closes with lines two standard deviations above and below. This price envelope is not a forecast and does not predict reversals. Bars are 30 minutes. Bands reflect prices as delivered; provider adjustments may differ. Thin markets can be noisy.'
+	},
+	{
+		stateKey: 'drawVolatilityBands', setterKey: 'setDrawVolatilityBands',
+		label: 'Calibrated Vol Bands',
+		description: 'Recent price swings and the last 500 bars estimate a possible next-bar range. The widening 13-bar fan is approximate beyond the next bar. Bars are 30 minutes. Bands reflect prices as delivered; provider adjustments may differ. News and thin markets can change results abruptly. Informational only, not advice.'
+	}
+]
+
 export default function ChartToolbar() {
 	const state = useAppState()
+	const populated = state.series.filter(series => series.assetClass)
+	const showOverlays = !populated.length || populated.some(series => series.assetClass !== 'interest')
 
 	return (
 		<div className="chart-bottom-controls" role="toolbar" aria-label="Chart display options">
@@ -63,6 +78,19 @@ export default function ChartToolbar() {
 							onChange={(e) => state[setterKey](e.target.checked)}
 						/>
 						<span>{label}</span>
+					</label>
+				))}
+				{showOverlays && OVERLAY_CHECKBOXES.map(({ stateKey, setterKey, label, description }) => (
+					<label key={stateKey} className="chart-checkbox overlay-checkbox">
+						<input
+							type="checkbox"
+							checked={state[stateKey]}
+							onChange={(e) => state[setterKey](e.target.checked)}
+							aria-label={label}
+							aria-describedby={`${stateKey}-description`}
+						/>
+						<span>{label}</span>
+						<span id={`${stateKey}-description`} role="tooltip" className="overlay-tooltip">{description}</span>
 					</label>
 				))}
 			</div>
