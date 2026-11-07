@@ -20,6 +20,7 @@ from .processor.ip import (
 )
 
 # Data processors
+from .processor.bands import bollinger_bands, volatility_bands
 from .processor.lr import log_return, volume_change
 from .processor.ma import moving_average
 from .processor.pw import ProgressWriter
