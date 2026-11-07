@@ -155,7 +155,7 @@ if (!isTty) {
   }
 }
 
-if (selected === 'lint') {
+if (names.length === 1 && names[0] === 'lint') {
   const clean = results.every(({ status }) => status === 0);
   process.stdout.write(`Lint checks: ${clean ? '100% [1/1 passed]' : '0% [0/1 passed]'}\n`);
 } else {

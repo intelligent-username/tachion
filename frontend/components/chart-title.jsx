@@ -44,7 +44,7 @@ export default function TrendlinesTitle() {
 
 	return (
 		<div className="chart-title-wrap">
-			<h1>Trendlines</h1>
+			{!currentSymbol && <h1>Trendlines</h1>}
 			{currentSymbol && <span className="chart-title-symbol">{currentSymbol}</span>}
 			<span className={`chart-title-metrics ${pctClass}`}>{priceText} • {pctText}</span>
 		</div>

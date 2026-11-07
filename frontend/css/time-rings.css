@@ -31,8 +31,8 @@
 	display: inline-flex;
 	align-items: center;
 	line-height: 1;
-	font-size: 1rem;
-	font-weight: 600;
+	font-size: 1.5rem;
+	font-weight: 700;
 	overflow-wrap: anywhere;
 }
 
@@ -40,7 +40,7 @@
 	display: inline-flex;
 	align-items: center;
 	line-height: 1;
-	font-size: 1.08rem;
+	font-size: 1.35rem;
 	font-weight: 700;
 	white-space: nowrap;
 	color: rgba(238, 238, 238, 0.82);
@@ -157,8 +157,12 @@
 		gap: 0.65rem;
 	}
 
+	.chart-title-symbol {
+		font-size: 1.3rem;
+	}
+
 	.chart-title-metrics {
-		font-size: 0.94rem;
+		font-size: 1.2rem;
 	}
 
 	.timespan-selector {
@@ -188,8 +192,12 @@
 		width: 100%;
 	}
 
+	.chart-title-symbol {
+		font-size: 1.2rem;
+	}
+
 	.chart-title-metrics {
-		font-size: 0.9rem;
+		font-size: 1.1rem;
 	}
 
 	.chart-header-actions {
