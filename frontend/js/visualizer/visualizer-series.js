@@ -139,7 +139,8 @@ export function removeSeriesRenderer(root, renderer) {
     }
 }
 
-// Adds the per-series vertical area gradient with the shared stop profile.
+// Adds the per-series area gradient. Both stops share one opacity so the fill
+// reads as a constant tint instead of fading along the price's vertical position.
 function createAreaGradient(defs, colors) {
     const gradient = defs.append('linearGradient')
         .attr('id', colors.gradientId)
@@ -149,15 +150,11 @@ function createAreaGradient(defs, colors) {
     gradient.append('stop')
         .attr('offset', '0%')
         .attr('stop-color', colors.gradientFrom)
-        .attr('stop-opacity', 0.22)
-    gradient.append('stop')
-        .attr('offset', '80%')
-        .attr('stop-color', colors.gradientTo)
-        .attr('stop-opacity', 0.04)
+        .attr('stop-opacity', 0.18)
     gradient.append('stop')
         .attr('offset', '100%')
         .attr('stop-color', colors.gradientTo)
-        .attr('stop-opacity', 0)
+        .attr('stop-opacity', 0.18)
 
     return colors.gradientId
 }

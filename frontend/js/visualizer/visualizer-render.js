@@ -99,21 +99,21 @@ export function drawCandlestickMode(renderer, chart) {
 // Optional SMA and EMA overlay lines over the current candles.
 // Computed on native closes before union alignment, then mapped to union indices.
 export function drawMovingAverages(renderer, chart) {
-    if (chart.selectedRange) {
-        renderer.currentMaPoints = null
-        renderer.currentEmaPoints = null
-        renderer.indicators.maLine.attr('opacity', 0)
-        renderer.indicators.emaLine.attr('opacity', 0)
-        return
-    }
-
     const overlayLine = xyLine(chart.xScale, renderer.yScale)
-    const native = renderer.native
-    const closes = native.map(d => d.close)
+    // Compute over the full history so a zoomed view keeps its warm-up bars,
+    // then map only the visible candles onto their union slots.
+    const source = renderer.fullNative ?? renderer.native
+    const visible = renderer.native
+    const closes = source.map(d => d.close)
+    const sourceIndexByTime = new Map(source.map((d, i) => [d.date.getTime(), i]))
+    const visiblePoints = values => visible.map(d => ({
+        x: d._i,
+        y: values[sourceIndexByTime.get(d.date.getTime())]
+    }))
 
-    if (chart.showMovingAverage && native.length > 0) {
+    if (chart.showMovingAverage && visible.length > 0) {
         const maValues = computeAdaptiveMovingAverage(closes, MA_WINDOW)
-        const maPoints = native.map((d, i) => ({ x: d._i, y: maValues[i] }))
+        const maPoints = visiblePoints(maValues)
         renderer.currentMaPoints = maPoints
 
         renderer.indicators.maLine
@@ -125,9 +125,9 @@ export function drawMovingAverages(renderer, chart) {
         renderer.indicators.maLine.attr('opacity', 0)
     }
 
-    if (chart.showExponentialMovingAverage && native.length > 0) {
+    if (chart.showExponentialMovingAverage && visible.length > 0) {
         const emaValues = computeExponentialMovingAverage(closes, EMA_PERIOD)
-        const emaPoints = native.map((d, i) => ({ x: d._i, y: emaValues[i] }))
+        const emaPoints = visiblePoints(emaValues)
         renderer.currentEmaPoints = emaPoints
 
         renderer.indicators.emaLine

@@ -44,8 +44,8 @@ const MIN_FULL_WIDTH = 180
 const MIN_FULL_HEIGHT = 200
 const MIN_PLOT_SIZE = 80
 const SIZE_EPSILON_PX = 0.5
-const Y_DOMAIN_TOP_PADDING = 0.15
-const Y_DOMAIN_BOTTOM_PADDING = 0.06
+const Y_DOMAIN_TOP_PADDING = 0.05
+const Y_DOMAIN_BOTTOM_PADDING = 0.05
 const EMPTY_Y_DOMAIN = [0, 1]
 const SERIES_LAYER_KEYS = ['bands', 'candles', 'price', 'indicators', 'prediction']
 
@@ -396,7 +396,7 @@ function applyNativeYDomain(renderer, includeOverlays = true) {
     }
     const ySpan = yMax > yMin ? yMax - yMin : Math.max(Math.abs(yMax) * 0.01, 1e-9)
     renderer.yScale.domain([yMin - ySpan * Y_DOMAIN_BOTTOM_PADDING,
-        yMax + ySpan * Y_DOMAIN_TOP_PADDING]).nice(6)
+        yMax + ySpan * Y_DOMAIN_TOP_PADDING])
 }
 
 // Keep series groups stacked in array order inside every layer.
@@ -444,15 +444,15 @@ function drawChart(chart) {
     for (const renderer of chart.series) {
         const eligible = renderer.native.length && renderer.assetClass !== 'interest'
         renderer.bandPoints = {
-            bollinger: !rangeActive && eligible && chart.showBollingerBands ? bandPoints(renderer, 'bollinger') : [],
-            volatility: !rangeActive && eligible && chart.showVolatilityBands ? bandPoints(renderer, 'volatility') : []
+            bollinger: eligible && chart.showBollingerBands ? bandPoints(renderer, 'bollinger') : [],
+            volatility: eligible && chart.showVolatilityBands ? bandPoints(renderer, 'volatility') : []
         }
         renderer.predictionPoints = rangeActive
             ? []
             : predictionPoints(renderer, chart.appliedPredictions[renderer.id])
-        // A zoomed view shows price only, so its scale must not reserve room
-        // for the hidden envelopes or forecasts.
-        applyNativeYDomain(renderer, !rangeActive)
+        // Optional envelopes respect their toggles while zoomed, so the scale
+        // must reserve room for them; forecasts stay hidden in range mode.
+        applyNativeYDomain(renderer, true)
     }
     chart.currentMaxX = resolveMaxExtendedX(chart)
     chart.xScale.domain([0, chart.currentMaxX])

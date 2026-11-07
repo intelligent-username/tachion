@@ -53,10 +53,6 @@ function applyPriceOpacity(chart, renderer) {
 
 function applyIndicatorOpacity(chart, renderer, kind, enabled, line) {
     if (!enabled || !line) return
-    if (chart.selectedRange) {
-        line.attr('opacity', 0)
-        return
-    }
 
     const target = resolveEmphasis(chart, renderer, kind)
     line
