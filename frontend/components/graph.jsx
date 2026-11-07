@@ -26,6 +26,8 @@ export default function Graph() {
         timespan,
         drawMovingAverage,
         drawExponentialMovingAverage,
+        drawBollingerBands,
+        drawVolatilityBands,
         chartMode,
         isLoading,
         loadingMessage,
@@ -55,7 +57,7 @@ export default function Graph() {
         }
     }, [registerChart])
 
-    // Render series data before predictions so the data pass cannot clear new overlays
+    // TChart retains forecasts across data/options redraws.
     useEffect(() => {
         if (!chartRef.current) return
 
@@ -66,10 +68,12 @@ export default function Graph() {
                 chartMode,
                 showMovingAverage: drawMovingAverage,
                 showExponentialMovingAverage: drawExponentialMovingAverage,
+                showBollingerBands: drawBollingerBands,
+                showVolatilityBands: drawVolatilityBands,
                 tooltipFields
             }
         )
-    }, [series, timespan, chartMode, drawMovingAverage, drawExponentialMovingAverage, tooltipFields])
+    }, [series, timespan, chartMode, drawMovingAverage, drawExponentialMovingAverage, drawBollingerBands, drawVolatilityBands, tooltipFields])
 
     // Apply predictions after the data render pass
     useEffect(() => {
@@ -79,28 +83,42 @@ export default function Graph() {
 
     const hasAnyData = series.some(s => (s.data?.length ?? 0) > 0)
     const hasSymbol = series.some(s => s.symbol)
+    const coverageRows = legendStats.filter(row => row.coverageText)
 
     return (
-        <div ref={containerRef} className="chart-container">
-            <ChartLegend
-                stats={legendStats}
-                series={series}
-                focusedSeriesId={focusedSeriesId}
-                onRemove={removeSeries}
-            />
+        <>
+            <div className="chart-container">
+                <div ref={containerRef} className="chart-svg-host" />
+                <ChartLegend
+                    stats={legendStats}
+                    series={series}
+                    focusedSeriesId={focusedSeriesId}
+                    onRemove={removeSeries}
+                />
 
-            {isLoading && !hasAnyData && (
-                <div className="chart-loading-overlay">
-                    <span>{loadingMessage || 'Loading...'}</span>
+                {isLoading && !hasAnyData && (
+                    <div className="chart-loading-overlay">
+                        <span>{loadingMessage || 'Loading…'}</span>
+                    </div>
+                )}
+
+                {!isLoading && !hasAnyData && hasSymbol && (
+                    <div className="chart-loading-overlay">
+                        <span>No data</span>
+                    </div>
+                )}
+            </div>
+            {coverageRows.length > 0 && (
+                <div className="chart-band-footer" aria-live="polite" aria-atomic="true">
+                    {coverageRows.map(row => (
+                        <p key={row.id} className={row.coverageOffTarget ? 'is-off-target' : undefined}>
+                            <strong>{row.symbol || 'Asset'} · Calibrated Vol Bands: </strong>
+                            {row.coverageText} {row.coverageWarning}
+                            <span className="chart-band-disclaimer"> Observed closing prices only; past coverage is not a promise.</span>
+                        </p>
+                    ))}
                 </div>
             )}
-
-            {!isLoading && !hasAnyData && hasSymbol && (
-                <div className="chart-loading-overlay">
-                    <span>No data</span>
-                </div>
-            )}
-            {/* D3 will render the chart here */}
-        </div>
+        </>
     )
 }

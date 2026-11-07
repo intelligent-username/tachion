@@ -1,4 +1,4 @@
-// In-chart legend overlay for multi-series mode
+// In-chart series and optional band legend
 // Memoized: Graph re-renders on every loading/state flip; legend only needs updates
 // when its own props change, and this row build is the heavier part of each pass.
 import { memo } from 'react'
@@ -57,33 +57,52 @@ function LegendStatus({ status, error }) {
 	)
 }
 
-function LegendRow({ row, isFocused, onRemove }) {
+function LegendRow({ row, isFocused, onRemove, showControls }) {
 	const symbol = row.symbol || EMPTY_VALUE
 	const removeLabel = `Remove ${row.symbol || 'series'}`
 	const toneClass = changeClass(row.pctChange)
 
 	return (
-		<div className={`chart-legend-row${isFocused ? ' is-focused' : ''}`} role="listitem">
-			<span className="chart-legend-swatch" style={{ background: row.color }} aria-hidden="true" />
-			<span className="chart-legend-symbol" title={row.symbol || undefined}>{symbol}</span>
-			<span className="chart-legend-value">{formatPrice(row.lastClose)}</span>
-			<span className={`chart-legend-change${toneClass ? ` ${toneClass}` : ''}`}>{formatChange(row.pctChange)}</span>
-			<LegendStatus status={row.status} error={row.error} />
-			<button
-				type="button"
-				className="chart-legend-remove"
-				onClick={() => onRemove?.(row.id)}
-				aria-label={removeLabel}
-				title={removeLabel}
-			>
-				×
-			</button>
+		<div className="chart-legend-entry" role="listitem">
+			<div className={`chart-legend-row${isFocused ? ' is-focused' : ''}`}>
+				<span className="chart-legend-swatch" style={{ background: row.color }} aria-hidden="true" />
+				<span className="chart-legend-symbol" title={row.symbol || undefined}>{symbol}</span>
+				<span className="chart-legend-value">{formatPrice(row.lastClose)}</span>
+				<span className={`chart-legend-change${toneClass ? ` ${toneClass}` : ''}`}>{formatChange(row.pctChange)}</span>
+				<LegendStatus status={row.status} error={row.error} />
+				{showControls && (
+					<button
+						type="button"
+						className="chart-legend-remove"
+						onClick={() => onRemove?.(row.id)}
+						aria-label={removeLabel}
+						title={removeLabel}
+					>
+						×
+					</button>
+				)}
+			</div>
+			<div className="chart-legend-overlays" aria-live="polite">
+				{row.classicLabel && (
+					<div className="chart-legend-overlay is-classic">
+						<span>{row.classicLabel}</span>
+						{row.classicStatus && <span className="chart-band-status">{row.classicStatus}</span>}
+					</div>
+				)}
+				{row.volatilityLabel && (
+					<div className="chart-legend-overlay is-calibrated">
+						<span>{row.volatilityLabel}</span>
+						{row.volatilityStatus && <span className="chart-band-status">{row.volatilityStatus}</span>}
+					</div>
+				)}
+			</div>
 		</div>
 	)
 }
 
 const ChartLegend = memo(function ChartLegend({ stats, series, focusedSeriesId = null, onRemove }) {
-	if (!Array.isArray(stats) || stats.length < 2) return null
+	if (!Array.isArray(stats) || !stats.length) return null
+	if (stats.length < 2 && !stats.some(row => row.classicLabel || row.volatilityLabel)) return null
 
 	const rows = mergeSeriesState(stats, series)
 
@@ -95,6 +114,7 @@ const ChartLegend = memo(function ChartLegend({ stats, series, focusedSeriesId =
 					row={row}
 					isFocused={row.id === focusedSeriesId}
 					onRemove={onRemove}
+					showControls={stats.length >= 2}
 				/>
 			))}
 		</div>

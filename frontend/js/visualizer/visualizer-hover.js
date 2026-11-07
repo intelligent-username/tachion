@@ -13,12 +13,14 @@ function visibleRenderers(chart) {
 }
 
 export function formatPrice(value) {
+    if (value == null || value === '') return '—'
     const n = Number(value)
     if (!Number.isFinite(n)) return '—'
     return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
 }
 
 export function formatVolume(value) {
+    if (value == null || value === '') return '—'
     const n = Number(value)
     if (!Number.isFinite(n)) return '—'
     return n.toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -149,7 +151,7 @@ function candleRows(candle, chart) {
 function buildSingleSeriesContent(renderer, idx, dateLabel, chart) {
     const [price, rest] = candleRows(renderer?.aligned?.[idx], chart)
     const time = tooltipField(chart, 'time') ? row('Time', dateLabel) : ''
-    return price + time + rest
+    return price + time + rest + bandRows(renderer, idx, chart)
 }
 
 function buildSeriesBlock(renderer, idx, chart) {
@@ -166,8 +168,30 @@ function buildSeriesBlock(renderer, idx, chart) {
         html += indicatorRow('EMA', renderer.currentEmaPoints, idx)
     }
     html += predictionRow(renderer, idx)
+    html += bandRows(renderer, idx, chart)
 
     return html + '</div>'
+}
+
+// One readout for price hover in either series mode; never fill missing slots
+// from a neighboring candle or coerce a null warmup value to zero.
+function bandRows(renderer, idx, chart) {
+    if (!renderer || renderer.assetClass === 'interest') return ''
+    const mapped = renderer.bandPoints
+    let html = ''
+    if (chart.showBollingerBands) {
+        const point = mapped?.bollinger?.[idx]
+        html += row('BB lower / middle / upper',
+            [point?.lower, point?.basis, point?.upper].map(formatPrice).join(' / '))
+        html += row('%B', Number.isFinite(point?.percentB) ? point.percentB.toFixed(3) : '—')
+        html += row('Bandwidth', Number.isFinite(point?.bandwidth) ? point.bandwidth.toFixed(4) : '—')
+    }
+    if (chart.showVolatilityBands) {
+        const point = mapped?.volatility?.[idx]
+        html += row('Calibrated lower / basis / upper',
+            [point?.lower, point?.basis, point?.upper].map(formatPrice).join(' / '))
+    }
+    return html
 }
 
 function indicatorRow(label, points, idx) {
@@ -333,7 +357,12 @@ function handleMouseMove(chart, event) {
     if (!dates.length) return
 
     const [x, y] = d3.pointer(event, chart.hoverRect.node())
-    const idx = Math.max(0, Math.min(dates.length - 1, Math.round(chart.xScale.invert(x))))
+    const slot = chart.xScale.invert(x)
+    if (slot < 0 || slot > dates.length - 1) {
+        handleMouseLeave(chart)
+        return
+    }
+    const idx = Math.round(slot)
     const cx = chart.xScale(idx)
 
     updateHoveredLine(chart, idx, y)

@@ -4,18 +4,24 @@
 import * as d3 from 'd3'
 import { prepareCandles } from './visualizer/visualizer-data'
 import { CHART_MARGIN, SERIES_AXIS_MARGIN_RIGHT, initChartSvg } from './visualizer/visualizer-layers'
-import { buildXTicks, drawAxes, drawStyledXAxis } from './visualizer/visualizer-axes'
+import { buildXTicks, drawAxes } from './visualizer/visualizer-axes'
 import { drawLineMode, drawCandlestickMode, drawMovingAverages, clearMainGraph } from './visualizer/visualizer-render'
 import { applyLineOpacities, bindHover } from './visualizer/visualizer-hover'
-import { animatePrediction as drawPredictionOverlay, resetPredictionOverlays } from './visualizer/visualizer-prediction'
+import { animatePrediction as drawPredictionOverlay, predictionPoints, resetPredictionOverlays } from './visualizer/visualizer-prediction'
 import { createSeriesRenderer, removeSeriesRenderer } from './visualizer/visualizer-series'
 import { resolveSeriesColors } from './visualizer/visualizer-colors'
+import { getBandIndicators, bandStatus } from './visualizer/visualizer-indicators'
+import { bandPoints, drawBandPaths, drawHistoricalBands } from './visualizer/visualizer-bands'
+import { fanPoints, drawFan } from './visualizer/visualizer-fan'
+import { resolveSubpanelLayout, drawSubpanels, clearSubpanels } from './visualizer/visualizer-subpanels'
 
 const DEFAULT_OPTIONS = {
     timespan: 'max',
     chartMode: 'bars',
     showMovingAverage: false,
     showExponentialMovingAverage: false,
+    showBollingerBands: false,
+    showVolatilityBands: false,
     tooltipFields: {
         price: true,
         time: true,
@@ -40,7 +46,7 @@ const MIN_PLOT_SIZE = 80
 const SIZE_EPSILON_PX = 0.5
 const Y_DOMAIN_PADDING = 0.08
 const EMPTY_Y_DOMAIN = [0, 1]
-const SERIES_LAYER_KEYS = ['candles', 'price', 'indicators', 'prediction']
+const SERIES_LAYER_KEYS = ['bands', 'candles', 'price', 'indicators', 'prediction']
 
 export class TChart {
     constructor(container, { onStats } = {}) {
@@ -52,7 +58,6 @@ export class TChart {
 
         this.resizeObserver = new ResizeObserver(() => {
             if (!this.hasSizeChanged()) return
-            this.resize()
             this.redrawFromCache()
         })
         this.resizeObserver.observe(container)
@@ -66,6 +71,8 @@ export class TChart {
         this.lastTimespan = DEFAULT_OPTIONS.timespan
         this.showMovingAverage = DEFAULT_OPTIONS.showMovingAverage
         this.showExponentialMovingAverage = DEFAULT_OPTIONS.showExponentialMovingAverage
+        this.showBollingerBands = DEFAULT_OPTIONS.showBollingerBands
+        this.showVolatilityBands = DEFAULT_OPTIONS.showVolatilityBands
         this.chartMode = DEFAULT_OPTIONS.chartMode
         this.baseOpacities = { ...BASE_OPACITIES }
         this.hoveredLine = null
@@ -74,8 +81,11 @@ export class TChart {
         this.unionDates = []
         this.unionIndexByTime = new Map()
         this.xScale = d3.scaleLinear()
-        this.predictionXScale = d3.scaleLinear()
         this.appliedPredictions = {}
+        this.subpanelCollapsed = { percentB: false, bandwidth: false }
+        this.subpanelDefaultsSet = false
+        this.lastExpandedSubpanel = null
+        this.subpanelLayout = { panels: [] }
         this.baseDates = []
         this.currentMaxX = 1
         this._xTickValues = []
@@ -103,17 +113,21 @@ export class TChart {
         const fullHeight = Math.max(MIN_FULL_HEIGHT, rect.height)
 
         this.width = Math.max(MIN_PLOT_SIZE, fullWidth - this.margin.left - this.margin.right)
-        this.height = Math.max(MIN_PLOT_SIZE, fullHeight - this.margin.top - this.margin.bottom)
+        this.subpanelLayout = resolveSubpanelLayout(this, {
+            fullWidth,
+            availableHeight: Math.max(MIN_PLOT_SIZE, fullHeight - this.margin.top - this.margin.bottom),
+            minPriceHeight: MIN_PLOT_SIZE
+        })
+        this.height = this.subpanelLayout.priceHeight
 
         this.rootSvg.attr('viewBox', `0 0 ${fullWidth} ${fullHeight}`)
 
         this.svg.attr('transform', `translate(${this.margin.left},${this.margin.top})`)
         this.xScale.range([0, this.width])
-        this.predictionXScale.range([0, this.width])
         for (const renderer of this.series) {
             renderer.yScale.range([this.height, 0])
         }
-        this.xAxis.attr('transform', `translate(0,${this.height})`)
+        this.xAxis.attr('transform', `translate(0,${this.subpanelLayout.xAxisY})`)
         this.rightYAxis.attr('transform', `translate(${this.width},0)`)
         this.hoverRect
             .attr('x', 0)
@@ -135,54 +149,26 @@ export class TChart {
         this.chartMode = resolved.chartMode
         this.showMovingAverage = resolved.showMovingAverage
         this.showExponentialMovingAverage = resolved.showExponentialMovingAverage
+        this.showBollingerBands = resolved.showBollingerBands
+        this.showVolatilityBands = resolved.showVolatilityBands
         this.tooltipFields = resolved.tooltipFields
 
-        const prepared = prepareSeriesDescriptors(descriptors, resolved.timespan)
+        const prepared = prepareSeriesDescriptors(descriptors, resolved)
         const union = buildUnionDates(prepared)
         this.unionDates = union.dates
         this.unionIndexByTime = union.indexByTime
         alignPreparedSeries(prepared, this.unionIndexByTime, this.unionDates.length)
 
         syncRenderers(this, prepared)
-        const ticks = updateAxisState(this)
-
-        if (this.unionDates.length === 0) {
-            clearEmptyChart(this)
-            return this
-        }
-
-        drawAxes(this, ticks)
-        drawPreparedSeries(this)
-
-        // The data pass resets prediction overlays; predictions re-apply when the map changes.
-        this.appliedPredictions = {}
-        this.predictionXScale = this.xScale.copy()
+        updateAxisState(this)
+        drawChart(this)
         return this
     }
 
     // Re-run the drawing pass over cached series without re-normalizing rows.
     redrawFromCache() {
-        if (!this.unionDates.length) return
-
-        const ticks = {
-            xMax: this.currentMaxX,
-            tickValues: this._xTickValues,
-            labelMap: this._xTickLabelMap,
-            xTickFormatter: this._xTickFormatter
-        }
-        drawAxes(this, ticks)
-
-        for (const renderer of this.series) {
-            if (!renderer.native.length) continue
-            drawRendererLayers(this, renderer)
-        }
-
-        bindHover(this)
-        this.updateLineOpacities()
-
-        if (Object.keys(this.appliedPredictions ?? {}).length > 0) {
-            this.applyPredictions(this.appliedPredictions)
-        }
+        drawChart(this)
+        return this
     }
 
     // Backward-compatible single-series entry point.
@@ -199,34 +185,8 @@ export class TChart {
     // series' own yScale, extending the x-axis to the furthest forecast.
     // applyPredictions({ [seriesId]: { predictions: [{ median, upper, lower }] } }) returns this.
     applyPredictions(map) {
-        const entries = Object.entries(map ?? {})
-        this.appliedPredictions = map ?? {}
-        clearUnpredictedRenderers(this, new Set(entries.map(([id]) => id)))
-
-        if (entries.length === 0) {
-            this.predictionXScale = this.xScale.copy()
-            // An empty chart must stay axis-free: the data pass already cleared it.
-            if (this.unionDates.length === 0) {
-                this.xAxis.selectAll('*').remove()
-                this.updateLineOpacities()
-                return this
-            }
-            drawPredictionAxis(this)
-            this.updateLineOpacities()
-            return this
-        }
-
-        this.predictionXScale = this.xScale.copy().domain([0, resolveMaxExtendedX(this, entries)])
-        drawPredictionAxis(this)
-
-        for (const [id, prediction] of entries) {
-            const renderer = this.series.find(series => series.id === id)
-            if (!renderer) continue
-            if (!prediction?.predictions?.length) renderer.currentPredictionPoints = null
-            drawPredictionOverlay(renderer, prediction, this, this.predictionXScale)
-        }
-
-        this.updateLineOpacities()
+        this.appliedPredictions = { ...(map ?? {}) }
+        drawChart(this)
         return this
     }
 
@@ -257,9 +217,17 @@ export class TChart {
 
     destroy() {
         this.resizeObserver?.disconnect()
+        clearSubpanels(this)
+        for (const renderer of this.series) removeSeriesRenderer(this, renderer)
         this.tooltip?.remove()
         d3.select(this.container).selectAll('*').remove()
         this.series = []
+        this.appliedPredictions = {}
+        this.currentData = []
+        this.unionDates = []
+        this.unionIndexByTime.clear()
+        this.baseDates = []
+        this.onStats = null
     }
 }
 
@@ -270,15 +238,18 @@ function resolveRenderOptions(chart, options) {
         chartMode: options.chartMode ?? chart.lastOptions.chartMode,
         showMovingAverage: !!(options.showMovingAverage ?? chart.lastOptions.showMovingAverage),
         showExponentialMovingAverage: !!(options.showExponentialMovingAverage ?? chart.lastOptions.showExponentialMovingAverage),
+        showBollingerBands: !!(options.showBollingerBands ?? chart.lastOptions.showBollingerBands),
+        showVolatilityBands: !!(options.showVolatilityBands ?? chart.lastOptions.showVolatilityBands),
         tooltipFields: options.tooltipFields ?? chart.lastOptions.tooltipFields
     }
 }
 
 // Normalize each descriptor's raw rows into native candles independently.
-function prepareSeriesDescriptors(descriptors, timespan) {
+function prepareSeriesDescriptors(descriptors, options) {
     return (descriptors ?? []).map(descriptor => ({
         ...descriptor,
-        native: prepareCandles(descriptor.data ?? [], timespan)
+        native: prepareCandles(descriptor.data ?? [], options.timespan),
+        bandData: getBandIndicators(descriptor, options)
     }))
 }
 
@@ -336,9 +307,15 @@ function syncRenderers(chart, prepared) {
         ...CHART_MARGIN,
         right: visibleCount >= 2 ? SERIES_AXIS_MARGIN_RIGHT : CHART_MARGIN.right
     }
-    chart.resize()
-
     const existingById = new Map(chart.series.map(renderer => [renderer.id, renderer]))
+    // Release all changing position-owned gradients before creating any new
+    // renderer; a reorder must not delete a gradient just claimed by its peer.
+    prepared.forEach((series, index) => {
+        const renderer = existingById.get(series.id)
+        if (!renderer || renderer.gradientId === resolveSeriesColors(index, visibleCount).gradientId) return
+        removeSeriesRenderer(chart, renderer)
+        existingById.delete(series.id)
+    })
     chart.series = prepared.map((series, index) => reconcileRenderer(
         chart, series, index, visibleCount, existingById
     ))
@@ -350,10 +327,6 @@ function reconcileRenderer(chart, series, index, total, existingById) {
     const colors = resolveSeriesColors(index, total)
     let renderer = existingById.get(series.id)
 
-    if (renderer && renderer.gradientId !== colors.gradientId) {
-        removeSeriesRenderer(chart, renderer)
-        renderer = null
-    }
     if (!renderer) {
         renderer = createSeriesRenderer(chart, { id: series.id, index, colors })
     }
@@ -364,23 +337,42 @@ function reconcileRenderer(chart, series, index, total, existingById) {
     renderer.hiddenLevel = series.hiddenLevel ?? 0
     renderer.colors = colors
     renderer.native = series.native
+    renderer.bandData = series.bandData
     renderer.aligned = series.aligned
     renderer.lastUnionIndex = series.lastUnionIndex
     renderer.yScale.range([chart.height, 0])
-    applyNativeYDomain(renderer)
     return renderer
 }
 
-// Pad the native low/high span by 8%, matching the single-series chart.
+// One price domain per asset, including every currently drawn envelope/forecast.
 function applyNativeYDomain(renderer) {
     if (!renderer.native.length) {
         renderer.yScale.domain([...EMPTY_Y_DOMAIN])
         return
     }
 
-    const yMin = d3.min(renderer.native, candle => candle.low)
-    const yMax = d3.max(renderer.native, candle => candle.high)
-    const ySpan = Math.max(1e-9, yMax - yMin)
+    let yMin = Infinity
+    let yMax = -Infinity
+    const include = value => {
+        if (!Number.isFinite(value)) return
+        yMin = Math.min(yMin, value)
+        yMax = Math.max(yMax, value)
+    }
+    for (const candle of renderer.native) { include(candle.low); include(candle.high) }
+    for (const points of Object.values(renderer.bandPoints ?? {})) {
+        for (const point of points) {
+            if (!point) continue
+            include(point.lower); include(point.upper); include(point.basis)
+        }
+    }
+    for (const point of renderer.predictionPoints) {
+        include(point.lower); include(point.upper); include(point.median)
+    }
+    if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) {
+        renderer.yScale.domain([...EMPTY_Y_DOMAIN])
+        return
+    }
+    const ySpan = yMax > yMin ? yMax - yMin : Math.max(Math.abs(yMax) * 0.01, 1e-9)
     const yPad = ySpan * Y_DOMAIN_PADDING
 
     renderer.yScale.domain([yMin - yPad, yMax + yPad])
@@ -395,68 +387,57 @@ function applySeriesZOrder(chart) {
     }
 }
 
-// Refresh cached x-axis state from the union dates and return its ticks.
+// Refresh historical tick labels only when the union dates change.
 function updateAxisState(chart) {
     chart.currentData = chart.series[0]?.native ?? []
     chart.baseDates = chart.unionDates
-    chart.currentMaxX = Math.max(1, chart.unionDates.length - 1)
-    chart.xScale.domain([0, chart.currentMaxX])
-
     const ticks = buildXTicks(chart.unionDates)
     chart._xTickValues = ticks.tickValues
     chart._xTickLabelMap = ticks.labelMap
     chart._xTickFormatter = ticks.xTickFormatter
-    return ticks
 }
 
-// Hide overlays for renderers that are absent from the predictions map.
-function clearUnpredictedRenderers(chart, predictedIds) {
+// History, fan and model forecasts share the same index-to-pixel mapping.
+function resolveMaxExtendedX(chart) {
+    let maxX = Math.max(1, chart.unionDates.length - 1)
     for (const renderer of chart.series) {
-        if (predictedIds.has(renderer.id)) continue
-        resetPredictionOverlays(renderer)
-        renderer.currentPredictionPoints = null
+        for (const points of [renderer.bandPoints?.fan, renderer.predictionPoints]) {
+            const endpoint = points?.[points.length - 1]?.x
+            if (Number.isFinite(endpoint)) maxX = Math.max(maxX, endpoint)
+        }
     }
+    return maxX
 }
 
-// Furthest x index across all forecast series, never below the historical max.
-function resolveMaxExtendedX(chart, entries) {
-    return Math.max(
-        chart.currentMaxX,
-        ...entries.map(([id, prediction]) => {
-            const renderer = chart.series.find(series => series.id === id)
-            return renderer ? renderer.lastUnionIndex + (prediction?.predictions?.length ?? 0) : 0
-        })
-    )
-}
+// Every public update enters here; no redraw path calls another public update.
+function drawChart(chart) {
+    const populated = new Set(chart.series.filter(renderer => renderer.native.length).map(renderer => renderer.id))
+    chart.appliedPredictions = Object.fromEntries(Object.entries(chart.appliedPredictions)
+        .filter(([id, prediction]) => populated.has(id) && prediction?.predictions?.length))
+    chart.resize()
+    if (!chart.unionDates.length) { clearEmptyChart(chart); return }
 
-// Redraw the x-axis against the current prediction scale.
-function drawPredictionAxis(chart) {
-    drawStyledXAxis(
-        chart,
-        chart.predictionXScale,
-        resolvePredictionTickValues(chart),
-        (v) => formatPredictionTick(chart, v)
-    )
-}
-
-// Tick positions for the prediction-extended x-axis; fall back to a small range.
-function resolvePredictionTickValues(chart) {
-    if (chart._xTickValues.length) return chart._xTickValues
-    return d3.range(0, Math.min(chart.baseDates.length, 8))
-}
-
-// Label lookup for extended-axis ticks, preferring the cached union labels.
-function formatPredictionTick(chart, value) {
-    const index = Math.round(value)
-    const date = chart.baseDates[index]
-    if (!date) return ''
-
-    const cached = chart._xTickLabelMap.get(index)
-    if (cached != null) return cached
-
-    const formatted = chart._xTickFormatter?.(date)
-    if (formatted) return formatted
-    return d3.timeFormat('%b %d')(date) || ''
+    for (const renderer of chart.series) {
+        const eligible = renderer.native.length && renderer.assetClass !== 'interest'
+        renderer.bandPoints = {
+            bollinger: eligible && chart.showBollingerBands ? bandPoints(renderer, 'bollinger') : [],
+            volatility: eligible && chart.showVolatilityBands ? bandPoints(renderer, 'volatility') : [],
+            fan: eligible ? fanPoints(renderer, chart) : []
+        }
+        renderer.predictionPoints = predictionPoints(renderer, chart.appliedPredictions[renderer.id])
+        applyNativeYDomain(renderer)
+    }
+    chart.currentMaxX = resolveMaxExtendedX(chart)
+    chart.xScale.domain([0, chart.currentMaxX])
+    drawAxes(chart, { tickValues: chart._xTickValues, labelMap: chart._xTickLabelMap })
+    drawPreparedSeries(chart)
+    drawSubpanels(chart)
+    chart.hoveredLine = null
+    chart.hoverLine.attr('opacity', 0)
+    chart.tooltip.style('opacity', 0)
+    bindHover(chart)
+    chart.updateLineOpacities()
+    chart.onStats?.(computeSeriesStats(chart))
 }
 
 // Clear axes, grid, and every series group when no series has dates.
@@ -475,12 +456,17 @@ function clearEmptyChart(chart) {
     chart.hoverLine.attr('opacity', 0)
     chart.tooltip.style('opacity', 0)
     chart.appliedPredictions = {}
-    chart.predictionXScale = chart.xScale.copy()
+    chart.hoverRect.on('mousemove', null).on('mouseleave', null)
+    chart.currentMaxX = 1
+    chart.xScale.domain([0, 1])
+    clearSubpanels(chart)
     chart.onStats?.([])
 }
 
 // Draw the layers a renderer's visibility level leaves enabled.
 function drawRendererLayers(chart, renderer) {
+    drawHistoricalBands(renderer, chart)
+    drawFan(renderer, chart)
     if ((renderer.hiddenLevel ?? 0) >= 1) {
         clearMainGraph(renderer)
     } else if (chart.chartMode === 'line') {
@@ -491,7 +477,7 @@ function drawRendererLayers(chart, renderer) {
     drawMovingAverages(renderer, chart)
 }
 
-// Draw every populated renderer, then reset stale prediction overlays.
+// Draw all populated renderers with their prepared, domain-aligned geometry.
 function drawPreparedSeries(chart) {
     for (const renderer of chart.series) {
         if (!renderer.native.length) {
@@ -500,31 +486,20 @@ function drawPreparedSeries(chart) {
         }
 
         drawRendererLayers(chart, renderer)
+        drawPredictionOverlay(renderer, chart.appliedPredictions[renderer.id], chart, renderer.predictionPoints)
     }
-
-    for (const renderer of chart.series) {
-        resetPredictionOverlays(renderer)
-        renderer.currentPredictionPoints = null
-    }
-
-    chart.hoveredLine = null
-    bindHover(chart)
-    chart.updateLineOpacities()
-    chart.onStats?.(computeSeriesStats(chart))
 }
 
 // Hide a renderer whose series has no native candles.
 function clearEmptyRenderer(renderer) {
-    renderer.groups.candles.selectAll('*').remove()
-    renderer.price.area.attr('d', null).attr('opacity', 0)
-    renderer.price.line.attr('d', null).attr('opacity', 0)
-    renderer.price.dot.attr('opacity', 0)
-    renderer.indicators.maLine.attr('d', null).attr('opacity', 0)
-    renderer.indicators.emaLine.attr('d', null).attr('opacity', 0)
-    renderer.prediction.line.attr('d', null)
-    renderer.prediction.band.attr('d', null)
-    renderer.prediction.upper.attr('d', null)
-    renderer.prediction.lower.attr('d', null)
+    for (const paths of Object.values(renderer.bands)) {
+        drawBandPaths(paths, [], null, null)
+    }
+    renderer.bandPoints = null
+    renderer.predictionPoints = []
+    clearMainGraph(renderer)
+    renderer.indicators.maLine.datum([]).attr('d', null).attr('opacity', 0)
+    renderer.indicators.emaLine.datum([]).attr('d', null).attr('opacity', 0)
     renderer.currentMaPoints = null
     renderer.currentEmaPoints = null
     renderer.currentPredictionPoints = null
@@ -543,7 +518,30 @@ function computeSeriesStats(chart) {
                 symbol: renderer.symbol,
                 color: renderer.colors.line,
                 lastClose: last.close,
-                pctChange: first.close ? ((last.close - first.close) / first.close) * 100 : null
+                pctChange: first.close ? ((last.close - first.close) / first.close) * 100 : null,
+                ...overlayStats(renderer, chart)
             }
         })
+}
+
+// Flat presentation fields preserve Graph's shallow stats comparison contract.
+function overlayStats(renderer, chart) {
+    const eligible = renderer.assetClass !== 'interest'
+    const showClassic = eligible && chart.showBollingerBands
+    const showVolatility = eligible && chart.showVolatilityBands
+    const cached = renderer.bandData
+    const volatility = cached?.volatility?.stats
+    const hasClassic = renderer.bandPoints?.bollinger.some(point => Number.isFinite(point?.basis))
+    const offTarget = showVolatility && volatility?.status === 'ready' &&
+        Number.isFinite(volatility.realizedCoverage) &&
+        Math.abs(volatility.realizedCoverage - volatility.targetCoverage) > 0.03
+    return {
+        classicLabel: showClassic ? 'BB — mean-reversion envelope (informational)' : '',
+        classicStatus: showClassic && !hasClassic ? 'Insufficient history — needs 20 usable closes.' : '',
+        volatilityLabel: showVolatility ? 'Calibrated Vol Bands — possible next-bar range (+13-bar fan)' : '',
+        volatilityStatus: showVolatility && (volatility?.status !== 'ready' || volatility?.realizedCoverage == null) ? bandStatus(cached) : '',
+        coverageText: showVolatility ? bandStatus(cached) : '',
+        coverageOffTarget: !!offTarget,
+        coverageWarning: offTarget ? `Observed coverage differs from ${(volatility.targetCoverage * 100).toFixed(0)}% by more than 3 percentage points.` : ''
+    }
 }

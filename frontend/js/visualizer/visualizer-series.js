@@ -1,6 +1,7 @@
 // Per-series SVG element creation/removal: groups, gradient, price, indicators, prediction
 import * as d3 from 'd3'
 import { MA_COLOR, EMA_COLOR } from './visualizer-colors'
+import { createBandPaths } from './visualizer-bands'
 
 const PRICE_LINE_STROKE_WIDTH = 2.2
 const INDICATOR_STROKE_WIDTH = 1.8
@@ -11,6 +12,13 @@ const BAND_STROKE_WIDTH = 1
 // createSeriesRenderer(root, { id: 'series-1', index: 1, colors }) returns
 // { id, index, yScale, groups, candles, price, indicators, prediction, ... }.
 export function createSeriesRenderer(root, { id, index, colors }) {
+    const bands = root.bandLayer.append('g').attr('class', 'series-bands')
+        .attr('data-series-id', id).style('pointer-events', 'none')
+    const bandPaths = {
+        bollinger: createBandPaths(bands, 'bollinger', colors.dash),
+        volatility: createBandPaths(bands, 'volatility', colors.dash),
+        fan: createBandPaths(bands, 'volatility', colors.dash)
+    }
     const candles = root.seriesCandlesLayer.append('g')
         .attr('class', 'series-candles')
         .attr('data-series-id', id)
@@ -100,7 +108,10 @@ export function createSeriesRenderer(root, { id, index, colors }) {
         id,
         index,
         yScale: d3.scaleLinear(),
-        groups: { candles, price, indicators, prediction },
+        groups: { bands, candles, price, indicators, prediction },
+        bands: bandPaths,
+        bandPoints: null,
+        predictionPoints: [],
         candles: {},
         price: { area, line, dot },
         indicators: { maLine, emaLine },
@@ -115,6 +126,10 @@ export function createSeriesRenderer(root, { id, index, colors }) {
 
 // Removes every group and the area gradient owned by `renderer`.
 export function removeSeriesRenderer(root, renderer) {
+    renderer.groups.bands.remove()
+    renderer.bandData = null
+    renderer.bandPoints = null
+    renderer.predictionPoints = []
     renderer.groups.candles.remove()
     renderer.groups.price.remove()
     renderer.groups.indicators.remove()

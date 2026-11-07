@@ -179,7 +179,7 @@ function drawRightAxis(chart, series) {
 }
 
 // Composed x axis draw: bottom axis, edge label anchoring, shared styling.
-// Used by both the historical axes and the prediction overlay's extended axis.
+// History and future overlays use the chart-owned coordinated scale.
 export function drawStyledXAxis(chart, scale, tickValues, tickFormat) {
     const axis = d3.axisBottom(scale)
         .tickValues(tickValues)

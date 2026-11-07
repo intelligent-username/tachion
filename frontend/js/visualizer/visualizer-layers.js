@@ -5,10 +5,12 @@ export const CHART_MARGIN = { top: 18, right: 18, bottom: 26, left: 54 }
 
 // Reserved right margin when a second series needs its own axis
 export const SERIES_AXIS_MARGIN_RIGHT = 54
+let nextChartId = 0
 
 // Builds the layered SVG skeleton for the chart inside `container`.
 // Per-series elements are created by visualizer-series.js.
 export function initChartSvg(container) {
+    const chartId = `tachion-chart-${++nextChartId}`
     // Clear any existing content
     d3.select(container).selectAll('*').remove()
 
@@ -25,13 +27,15 @@ export function initChartSvg(container) {
 
     const svg = rootSvg.append('g')
 
-    // Stable z-order: grid, series candles, series price, indicators,
-    // predictions, axes, hover
+    // Stable z-order: grid, bands, candles, price, indicators, predictions,
+    // supporting strips, axes, hover.
     const gridLayer = svg.append('g').attr('class', 'grid-layer')
+    const bandLayer = svg.append('g').attr('class', 'band-layer')
     const seriesCandlesLayer = svg.append('g').attr('class', 'series-candles-layer')
     const seriesPriceLayer = svg.append('g').attr('class', 'series-price-layer')
     const indicatorLayer = svg.append('g').attr('class', 'indicator-layer')
     const predictionLayer = svg.append('g').attr('class', 'prediction-layer')
+    const subpanelLayer = svg.append('g').attr('class', 'subpanel-layer')
 
     const axisLayer = svg.append('g').attr('class', 'axis-layer')
 
@@ -65,9 +69,9 @@ export function initChartSvg(container) {
         .style('opacity', 0)
 
     return {
-        rootSvg, defs, svg,
-        gridLayer, seriesCandlesLayer, seriesPriceLayer,
-        indicatorLayer, predictionLayer, axisLayer,
+        chartId, rootSvg, defs, svg,
+        gridLayer, bandLayer, seriesCandlesLayer, seriesPriceLayer,
+        indicatorLayer, predictionLayer, subpanelLayer, axisLayer,
         xAxis, leftYAxis, rightYAxis,
         hoverLayer, hoverLine, hoverRect, tooltip
     }

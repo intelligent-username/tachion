@@ -40,8 +40,8 @@ export function drawLineMode(renderer, chart) {
 // Hide the main price layer: candles, line, area, and dot.
 export function clearMainGraph(renderer) {
     renderer.groups.candles.selectAll('*').remove()
-    renderer.price.area.attr('d', null).attr('opacity', 0)
-    renderer.price.line.attr('d', null).attr('opacity', 0)
+    renderer.price.area.interrupt().datum([]).attr('d', null).attr('opacity', 0)
+    renderer.price.line.interrupt().datum([]).attr('d', null).attr('opacity', 0)
     renderer.price.dot.attr('opacity', 0)
 }
 
@@ -52,7 +52,7 @@ export function drawCandlestickMode(renderer, chart) {
     renderer.price.line.transition().duration(240).ease(d3.easeCubicOut).attr('opacity', 0)
     renderer.price.dot.attr('opacity', 0)
 
-    const minSpacingPx = chart.width / Math.max(1, chart.unionDates.length - 1)
+    const minSpacingPx = Math.abs(chart.xScale(1) - chart.xScale(0))
     const bodyWidth = Math.max(2, Math.min(14, minSpacingPx * 0.7))
 
     const candle = renderer.groups.candles
