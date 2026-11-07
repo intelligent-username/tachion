@@ -121,6 +121,24 @@ export function clampRowsByTimespan(rows, timespan) {
     return clamped.length > 1 ? clamped : rows.slice(-2)
 }
 
+// Normalize an epoch-ms range; reverse drags become start <= end.
+export function normalizeRange(range) {
+    if (!range) return null
+    const start = Number(range.start)
+    const end = Number(range.end)
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return null
+    return start <= end ? { start, end } : { start: end, end: start }
+}
+
+// Keep only candles whose date falls inside the inclusive range.
+export function filterCandlesByRange(candles, range) {
+    if (!range) return candles
+    return candles.filter(candle => {
+        const time = candle.date.getTime()
+        return time >= range.start && time <= range.end
+    })
+}
+
 // Normalize raw OHLCV rows into date-sorted candles clamped to the timespan.
 // prepareCandles([{ close: 10 }], 'max') returns one candle with close 10.
 export function prepareCandles(rows, timespan = 'max') {

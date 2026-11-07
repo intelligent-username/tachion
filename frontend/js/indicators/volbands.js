@@ -67,7 +67,16 @@ export class VolBandsCalculator {
         }
         this.usableBars++
         if (this.previousClose !== null) this.processBar(bar, index)
-        else this.initialVariance = initialVariance(bar)
+        else {
+            this.initialVariance = initialVariance(bar)
+            const band = interval(bar.close, this.initialVariance, PROVISIONAL_QUANTILES)
+            if (band) {
+                this.output.basis[index] = bar.close
+                this.output.lower[index] = band.lower
+                this.output.upper[index] = band.upper
+                this.output.quantiles[index] = PROVISIONAL_QUANTILES
+            }
+        }
         this.previousClose = bar.close
         this.summaries.push(this.snapshot(index))
     }
@@ -126,7 +135,7 @@ export class VolBandsCalculator {
         // Count bars to the first mature historical interval, not to the first
         // full residual window: that window completes one observation earlier.
         return { ...this.output, stats: { ...stats },
-            meta: { minimumBars: 2, warmup: seed + this.params.quantileWindow + 2 } }
+            meta: { minimumBars: 1, warmup: seed + this.params.quantileWindow + 2 } }
     }
 
     clone() {

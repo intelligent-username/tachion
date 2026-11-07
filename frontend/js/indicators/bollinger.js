@@ -34,7 +34,7 @@ export class BollingerCalculator {
         const span = this.queue.length
         this.summaries.push({ usableBars: this.usableBars, windowBars: span - this.invalid,
             isProvisional: span < this.params.window || this.invalid > 0 })
-        if (span < 2 || this.invalid) return
+        if (span < 1 || this.invalid) return
         const mean = this.sum / span
         const deviation = Math.sqrt(Math.max(0, this.sumSq / span - mean * mean))
         const upper = mean + this.params.k * deviation
@@ -50,7 +50,7 @@ export class BollingerCalculator {
 
     resultAt(index = this.summaries.length - 1) {
         const stats = this.summaries[index] ?? { usableBars: 0, windowBars: 0, isProvisional: true }
-        return { ...this.output, stats: { ...stats }, meta: { minimumBars: 2, warmup: this.params.window } }
+        return { ...this.output, stats: { ...stats }, meta: { minimumBars: 1, warmup: this.params.window } }
     }
 
     clone() {
@@ -71,7 +71,7 @@ export class BollingerCalculator {
     }
 }
 
-/** Population-SD bands: progressive from two closes, exact fixed window when mature.
+/** Population-SD bands: progressive from one close, exact fixed window when mature.
  * @param {Array<{close:number}>} bars
  * @param {typeof BOLLINGER_CFG} [params]
  * @returns {{middle:(number|null)[],upper:(number|null)[],lower:(number|null)[],percentB:(number|null)[],provisional:boolean[],stats:{usableBars:number,windowBars:number,isProvisional:boolean},meta:{minimumBars:number,warmup:number}}}

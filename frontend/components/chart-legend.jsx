@@ -1,124 +1,29 @@
-// In-chart series and optional band legend
-// Memoized: Graph re-renders on every loading/state flip; legend only needs updates
-// when its own props change, and this row build is the heavier part of each pass.
+// Descriptions of the enabled chart overlays.
 import { memo } from 'react'
-const EMPTY_VALUE = '—'
-const MIN_PRICE_DECIMALS = 2
-const MAX_PRICE_DECIMALS = 6
 
-function toFiniteNumber(value) {
-	if (value == null || value === '') return null
-	const numeric = Number(value)
-	return Number.isFinite(numeric) ? numeric : null
-}
-
-function formatPrice(value) {
-	const numeric = toFiniteNumber(value)
-	if (numeric == null) return EMPTY_VALUE
-	return numeric.toLocaleString(undefined, {
-		minimumFractionDigits: MIN_PRICE_DECIMALS,
-		maximumFractionDigits: MAX_PRICE_DECIMALS,
-	})
-}
-
-function formatChange(value) {
-	const numeric = toFiniteNumber(value)
-	if (numeric == null) return EMPTY_VALUE
-	return `${numeric >= 0 ? '+' : ''}${numeric.toFixed(2)}%`
-}
-
-function changeClass(value) {
-	const numeric = toFiniteNumber(value)
-	if (numeric == null) return ''
-	return numeric >= 0 ? 'is-up' : 'is-down'
-}
-
-function mergeSeriesState(stats, series) {
-	const byId = new Map((series || []).map(item => [item.id, item]))
-	return stats.map(stat => {
-		const live = byId.get(stat.id)
-		return { ...stat, status: live?.status, error: live?.error }
-	})
-}
-
-function errorMessage(error) {
-	if (!error) return ''
-	return typeof error === 'string' ? error : error.message || String(error)
-}
-
-function LegendStatus({ status, error }) {
-	const message = errorMessage(error)
-	if (status !== 'loading' && !message) return null
-	return (
-		<>
-			{status === 'loading' && <span className="chart-legend-status" title="Loading">…</span>}
-			{message && <span className="chart-legend-status is-error" title={message}>!</span>}
-		</>
-	)
-}
-
-function LegendRow({ row, isFocused, onRemove, showControls }) {
-	const symbol = row.symbol || EMPTY_VALUE
-	const removeLabel = `Remove ${row.symbol || 'series'}`
-	const toneClass = changeClass(row.pctChange)
-
-	return (
-		<div className="chart-legend-entry" role="listitem">
-			<div className={`chart-legend-row${isFocused ? ' is-focused' : ''}`}>
-				<span className="chart-legend-swatch" style={{ background: row.color }} aria-hidden="true" />
-				<span className="chart-legend-symbol" title={row.symbol || undefined}>{symbol}</span>
-				<span className="chart-legend-value">{formatPrice(row.lastClose)}</span>
-				<span className={`chart-legend-change${toneClass ? ` ${toneClass}` : ''}`}>{formatChange(row.pctChange)}</span>
-				<LegendStatus status={row.status} error={row.error} />
-				{showControls && (
-					<button
-						type="button"
-						className="chart-legend-remove"
-						onClick={() => onRemove?.(row.id)}
-						aria-label={removeLabel}
-						title={removeLabel}
-					>
-						×
-					</button>
-				)}
-			</div>
-			<div className="chart-legend-overlays" aria-live="polite">
-				{row.classicLabel && (
-					<div className="chart-legend-overlay is-classic">
-						<span>{row.classicLabel}</span>
-						{row.classicStatus && <span className="chart-band-status">{row.classicStatus}</span>}
-					</div>
-				)}
-				{row.volatilityLabel && (
-					<div className="chart-legend-overlay is-calibrated">
-						<span>{row.volatilityLabel}</span>
-						{row.volatilityStatus && <span className="chart-band-status">{row.volatilityStatus}</span>}
-					</div>
-				)}
-			</div>
-		</div>
-	)
-}
-
-const ChartLegend = memo(function ChartLegend({ stats, series, focusedSeriesId = null, onRemove }) {
-	if (!Array.isArray(stats) || !stats.length) return null
-	if (stats.length < 2 && !stats.some(row => row.classicLabel || row.volatilityLabel)) return null
-
-	const rows = mergeSeriesState(stats, series)
-
-	return (
-		<div className="chart-legend" role="list" aria-label="Chart series">
-			{rows.map(row => (
-				<LegendRow
-					key={row.id}
-					row={row}
-					isFocused={row.id === focusedSeriesId}
-					onRemove={onRemove}
-					showControls={stats.length >= 2}
-				/>
-			))}
-		</div>
-	)
+const ChartLegend = memo(function ChartLegend({ stats = [] }) {
+    const overlays = new Map()
+    for (const row of stats) {
+        for (const [kind, label, status] of [
+            ['classic', row.classicLabel, row.classicStatus],
+            ['calibrated', row.volatilityLabel, row.volatilityStatus],
+        ]) {
+            if (label) overlays.set(`${kind}:${label}:${status || ''}`, { kind, label, status })
+        }
+    }
+    if (!overlays.size) return null
+    return (
+        <div className="chart-legend" aria-label="Chart bands">
+            <div className="chart-legend-overlays" aria-live="polite">
+                {[...overlays.values()].map(({ kind, label, status }) => (
+                    <div key={`${kind}:${label}:${status || ''}`} className={`chart-legend-overlay is-${kind}`}>
+                        <span>{label}</span>
+                        {status && <span className="chart-band-status">{status}</span>}
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
 })
 
 export default ChartLegend

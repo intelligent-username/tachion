@@ -24,6 +24,8 @@ export default function Graph() {
         series,
         predictions,
         timespan,
+        selectedRange,
+        setSelectedRange,
         drawMovingAverage,
         drawExponentialMovingAverage,
         drawBollingerBands,
@@ -31,10 +33,8 @@ export default function Graph() {
         chartMode,
         isLoading,
         loadingMessage,
-        focusedSeriesId,
         tooltipFields,
-        registerChart,
-        removeSeries
+        registerChart
     } = useAppState()
 
     // Initialize chart on mount
@@ -44,7 +44,8 @@ export default function Graph() {
         // Chart stats can be re-emitted with identical values (hover/resize);
         // keep the same array reference so React skips pointless re-renders
         const chart = new TChart(containerRef.current, {
-            onStats: stats => setLegendStats(prev => shallowEqualStats(prev, stats) ? prev : stats)
+            onStats: stats => setLegendStats(prev => shallowEqualStats(prev, stats) ? prev : stats),
+            onRangeSelect: setSelectedRange
         })
         chartRef.current = chart
         registerChart(chart)
@@ -55,14 +56,14 @@ export default function Graph() {
             registerChart(null)
             setLegendStats([])
         }
-    }, [registerChart])
+    }, [registerChart, setSelectedRange])
 
     // TChart retains forecasts across data/options redraws.
     useEffect(() => {
         if (!chartRef.current) return
 
         chartRef.current.renderSeries(
-            series.map(s => ({ id: s.id, symbol: s.symbol, assetClass: s.assetClass, data: s.data, hiddenLevel: s.hiddenLevel ?? 0 })),
+            series.map(s => ({ id: s.id, symbol: s.symbol, assetClass: s.assetClass, data: s.data, bandHistory: s.bandHistory, hiddenLevel: s.hiddenLevel ?? 0 })),
             {
                 timespan,
                 chartMode,
@@ -70,10 +71,11 @@ export default function Graph() {
                 showExponentialMovingAverage: drawExponentialMovingAverage,
                 showBollingerBands: drawBollingerBands,
                 showVolatilityBands: drawVolatilityBands,
+                range: selectedRange,
                 tooltipFields
             }
         )
-    }, [series, timespan, chartMode, drawMovingAverage, drawExponentialMovingAverage, drawBollingerBands, drawVolatilityBands, tooltipFields])
+    }, [series, timespan, selectedRange, chartMode, drawMovingAverage, drawExponentialMovingAverage, drawBollingerBands, drawVolatilityBands, tooltipFields])
 
     // Apply predictions after the data render pass
     useEffect(() => {
@@ -89,12 +91,7 @@ export default function Graph() {
         <>
             <div className="chart-container">
                 <div ref={containerRef} className="chart-svg-host" />
-                <ChartLegend
-                    stats={legendStats}
-                    series={series}
-                    focusedSeriesId={focusedSeriesId}
-                    onRemove={removeSeries}
-                />
+                <ChartLegend stats={legendStats} />
 
                 {isLoading && !hasAnyData && (
                     <div className="chart-loading-overlay">

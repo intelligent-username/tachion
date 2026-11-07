@@ -8,10 +8,9 @@ function strictNumber(value) {
 }
 
 /** Validate deliveries by content; never repair invalid OHLC for band math. */
-export function getBandIndicators(descriptor, options) {
-    const source = descriptor.data
-    if (!Array.isArray(source) || !source.length || descriptor.assetClass === 'interest') return null
-    if (!options.showBollingerBands && !options.showVolatilityBands) return null
+export function getBandIndicators(descriptor) {
+    if (!Array.isArray(descriptor.data) || !descriptor.data.length || descriptor.assetClass === 'interest') return null
+    const source = [...(descriptor.bandHistory ?? []), ...descriptor.data]
     const byTime = new Map()
     for (const row of source) {
         if (!row || typeof row !== 'object') continue

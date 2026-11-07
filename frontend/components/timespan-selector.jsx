@@ -25,6 +25,7 @@ export default function TimespanSelector() {
 
         const header = node.closest('.chart-header')
         const titleBlock = header?.querySelector('.chart-title-wrap') || header?.querySelector('h1')
+        const actions = node.closest('.chart-header-actions')
         const recalc = () => {
             const nextWidth = getAvailableSelectorWidth(node)
             setAvailableWidth(prev => (prev === nextWidth ? prev : nextWidth))
@@ -52,6 +53,7 @@ export default function TimespanSelector() {
             obs.observe(header)
             obs.observe(node)
             if (titleBlock) obs.observe(titleBlock)
+            if (actions) obs.observe(actions)
         } else {
             obs.observe(node)
         }

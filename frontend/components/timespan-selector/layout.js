@@ -36,12 +36,17 @@ export function getAvailableSelectorWidth(selectorNode) {
     const paddingRight = parseFloat(headerStyles.paddingRight || '0') || 0
     const sidePadding = paddingLeft + paddingRight + 2
 
-    // When selector wraps to the next line, it should use the full row width.
+    // The Reset pill is a sibling inside the actions wrapper; its width must
+    // come out of the chip row or the selector overflows the header.
+    const resetButton = header.querySelector('.chart-reset-zoom')
+    const resetWidth = resetButton ? resetButton.offsetWidth + gap : 0
+
+    // When selector wraps to the next line, it shares the row with the pill.
     if (titleBlock && selectorNode.offsetTop > titleBlock.offsetTop) {
-        return Math.max(0, headerWidth - sidePadding)
+        return Math.max(0, headerWidth - resetWidth - sidePadding)
     }
 
-    return Math.max(0, headerWidth - titleWidth - gap - sidePadding)
+    return Math.max(0, headerWidth - titleWidth - resetWidth - gap - sidePadding)
 }
 
 export function getVisibleOptions(containerPx, currentValue) {

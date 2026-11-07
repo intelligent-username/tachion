@@ -2,7 +2,7 @@
 // Implementation details live in the visualizer-* helper modules; this file
 // wires them together and exposes the public TChart API.
 import * as d3 from 'd3'
-import { prepareCandles } from './visualizer/visualizer-data'
+import { prepareCandles, filterCandlesByRange, normalizeRange } from './visualizer/visualizer-data'
 import { CHART_MARGIN, SERIES_AXIS_MARGIN_RIGHT, initChartSvg } from './visualizer/visualizer-layers'
 import { buildXTicks, drawAxes } from './visualizer/visualizer-axes'
 import { drawLineMode, drawCandlestickMode, drawMovingAverages, clearMainGraph } from './visualizer/visualizer-render'
@@ -12,6 +12,7 @@ import { createSeriesRenderer, removeSeriesRenderer } from './visualizer/visuali
 import { resolveSeriesColors } from './visualizer/visualizer-colors'
 import { getBandIndicators } from './visualizer/visualizer-indicators'
 import { bandPoints, drawBandPaths, drawHistoricalBands, fiveBarReturnRate } from './visualizer/visualizer-bands'
+import { bindRangeSelect } from './visualizer/visualizer-range'
 
 const DEFAULT_OPTIONS = {
     timespan: 'max',
@@ -20,6 +21,7 @@ const DEFAULT_OPTIONS = {
     showExponentialMovingAverage: false,
     showBollingerBands: false,
     showVolatilityBands: false,
+    range: null,
     tooltipFields: {
         price: true,
         time: true,
@@ -42,17 +44,19 @@ const MIN_FULL_WIDTH = 180
 const MIN_FULL_HEIGHT = 200
 const MIN_PLOT_SIZE = 80
 const SIZE_EPSILON_PX = 0.5
-const Y_DOMAIN_PADDING = 0.08
+const Y_DOMAIN_TOP_PADDING = 0.15
+const Y_DOMAIN_BOTTOM_PADDING = 0.06
 const EMPTY_Y_DOMAIN = [0, 1]
 const SERIES_LAYER_KEYS = ['bands', 'candles', 'price', 'indicators', 'prediction']
 
 export class TChart {
-    constructor(container, { onStats } = {}) {
+    constructor(container, { onStats, onRangeSelect } = {}) {
         this.container = container
-        this.initState(onStats)
+        this.initState(onStats, onRangeSelect)
 
         // Create the SVG structure and pull all element refs onto the instance
         Object.assign(this, initChartSvg(container))
+        bindRangeSelect(this)
 
         this.resizeObserver = new ResizeObserver(() => {
             if (!this.hasSizeChanged()) return
@@ -63,7 +67,7 @@ export class TChart {
         this.resize()
     }
 
-    initState(onStats) {
+    initState(onStats, onRangeSelect) {
         this.margin = { ...CHART_MARGIN }
         this.currentData = []
         this.lastTimespan = DEFAULT_OPTIONS.timespan
@@ -85,7 +89,10 @@ export class TChart {
         this._xTickValues = []
         this._xTickLabelMap = new Map()
         this._xTickFormatter = null
+        this.selectedRange = null
+        this.rangeDrag = null
         this.onStats = onStats ?? null
+        this.onRangeSelect = onRangeSelect ?? null
         this.lastOptions = { ...DEFAULT_OPTIONS, tooltipFields: { ...DEFAULT_OPTIONS.tooltipFields } }
         this.lastWidth = 0
         this.lastHeight = 0
@@ -143,6 +150,12 @@ export class TChart {
         this.tooltipFields = resolved.tooltipFields
 
         const prepared = prepareSeriesDescriptors(descriptors, resolved)
+        this.selectedRange = resolved.range
+        if (!applyRangeSelection(prepared, this.selectedRange)) {
+            this.selectedRange = null
+            this.onRangeSelect?.(null)
+            applyRangeSelection(prepared, null)
+        }
         const union = buildUnionDates(prepared)
         this.unionDates = union.dates
         this.unionIndexByTime = union.indexByTime
@@ -187,7 +200,7 @@ export class TChart {
     }
 
     getSeriesData(id) {
-        const native = this.series.find(renderer => renderer.id === id)?.native ?? []
+        const native = this.series.find(renderer => renderer.id === id)?.fullNative ?? []
         return native.map(candle => {
             const copy = { ...candle }
             delete copy._i
@@ -215,6 +228,9 @@ export class TChart {
         this.unionDates = []
         this.unionIndexByTime.clear()
         this.baseDates = []
+        this.selectedRange = null
+        this.rangeDrag = null
+        this.onRangeSelect = null
         this.onStats = null
     }
 }
@@ -228,6 +244,7 @@ function resolveRenderOptions(chart, options) {
         showExponentialMovingAverage: !!(options.showExponentialMovingAverage ?? chart.lastOptions.showExponentialMovingAverage),
         showBollingerBands: !!(options.showBollingerBands ?? chart.lastOptions.showBollingerBands),
         showVolatilityBands: !!(options.showVolatilityBands ?? chart.lastOptions.showVolatilityBands),
+        range: normalizeRange(options.range !== undefined ? options.range : chart.lastOptions.range),
         tooltipFields: options.tooltipFields ?? chart.lastOptions.tooltipFields
     }
 }
@@ -237,8 +254,22 @@ function prepareSeriesDescriptors(descriptors, options) {
     return (descriptors ?? []).map(descriptor => ({
         ...descriptor,
         native: prepareCandles(descriptor.data ?? [], options.timespan),
-        bandData: getBandIndicators(descriptor, options)
+        bandData: getBandIndicators(descriptor)
     }))
+}
+
+// Slice prepared candles to the selected range while retaining the full set
+// for prediction snapshots and for restoring the view on Reset.
+function applyRangeSelection(prepared, range) {
+    let matched = false
+    for (const series of prepared) {
+        if (!series.fullNative) series.fullNative = series.native
+        series.native = range
+            ? filterCandlesByRange(series.fullNative, range)
+            : series.fullNative
+        if (range && series.native.length >= 2) matched = true
+    }
+    return !range || matched
 }
 
 // Collect every timestamp across all series into sorted union dates.
@@ -325,6 +356,7 @@ function reconcileRenderer(chart, series, index, total, existingById) {
     renderer.hiddenLevel = series.hiddenLevel ?? 0
     renderer.colors = colors
     renderer.native = series.native
+    renderer.fullNative = series.fullNative ?? series.native
     renderer.bandData = series.bandData
     renderer.aligned = series.aligned
     renderer.lastUnionIndex = series.lastUnionIndex
@@ -332,8 +364,8 @@ function reconcileRenderer(chart, series, index, total, existingById) {
     return renderer
 }
 
-// One price domain per asset, including every currently drawn envelope/forecast.
-function applyNativeYDomain(renderer) {
+// Keep the scale stable across band toggles by reserving room for both envelopes.
+function applyNativeYDomain(renderer, includeOverlays = true) {
     if (!renderer.native.length) {
         renderer.yScale.domain([...EMPTY_Y_DOMAIN])
         return
@@ -347,23 +379,24 @@ function applyNativeYDomain(renderer) {
         yMax = Math.max(yMax, value)
     }
     for (const candle of renderer.native) { include(candle.low); include(candle.high) }
-    for (const points of Object.values(renderer.bandPoints ?? {})) {
-        for (const point of points) {
-            if (!point) continue
-            include(point.lower); include(point.upper)
+    if (includeOverlays) {
+        for (const points of [bandPoints(renderer, 'bollinger'), bandPoints(renderer, 'volatility')]) {
+            for (const point of points) {
+                if (!point) continue
+                include(point.lower); include(point.upper)
+            }
         }
-    }
-    for (const point of renderer.predictionPoints) {
-        include(point.lower); include(point.upper); include(point.median)
+        for (const point of renderer.predictionPoints) {
+            include(point.lower); include(point.upper); include(point.median)
+        }
     }
     if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) {
         renderer.yScale.domain([...EMPTY_Y_DOMAIN])
         return
     }
     const ySpan = yMax > yMin ? yMax - yMin : Math.max(Math.abs(yMax) * 0.01, 1e-9)
-    const yPad = ySpan * Y_DOMAIN_PADDING
-
-    renderer.yScale.domain([yMin - yPad, yMax + yPad])
+    renderer.yScale.domain([yMin - ySpan * Y_DOMAIN_BOTTOM_PADDING,
+        yMax + ySpan * Y_DOMAIN_TOP_PADDING]).nice(6)
 }
 
 // Keep series groups stacked in array order inside every layer.
@@ -397,20 +430,29 @@ function resolveMaxExtendedX(chart) {
 
 // Every public update enters here; no redraw path calls another public update.
 function drawChart(chart) {
-    const populated = new Set(chart.series.filter(renderer => renderer.native.length).map(renderer => renderer.id))
+    // Use fullNative so a forecast survives a zoom whose range excludes that
+    // series; it is hidden while zoomed and must return on Reset.
+    const populated = new Set(chart.series
+        .filter(renderer => renderer.native.length || renderer.fullNative?.length)
+        .map(renderer => renderer.id))
     chart.appliedPredictions = Object.fromEntries(Object.entries(chart.appliedPredictions)
         .filter(([id, prediction]) => populated.has(id) && prediction?.predictions?.length))
     chart.resize()
     if (!chart.unionDates.length) { clearEmptyChart(chart); return }
 
+    const rangeActive = !!chart.selectedRange
     for (const renderer of chart.series) {
         const eligible = renderer.native.length && renderer.assetClass !== 'interest'
         renderer.bandPoints = {
-            bollinger: eligible && chart.showBollingerBands ? bandPoints(renderer, 'bollinger') : [],
-            volatility: eligible && chart.showVolatilityBands ? bandPoints(renderer, 'volatility') : []
+            bollinger: !rangeActive && eligible && chart.showBollingerBands ? bandPoints(renderer, 'bollinger') : [],
+            volatility: !rangeActive && eligible && chart.showVolatilityBands ? bandPoints(renderer, 'volatility') : []
         }
-        renderer.predictionPoints = predictionPoints(renderer, chart.appliedPredictions[renderer.id])
-        applyNativeYDomain(renderer)
+        renderer.predictionPoints = rangeActive
+            ? []
+            : predictionPoints(renderer, chart.appliedPredictions[renderer.id])
+        // A zoomed view shows price only, so its scale must not reserve room
+        // for the hidden envelopes or forecasts.
+        applyNativeYDomain(renderer, !rangeActive)
     }
     chart.currentMaxX = resolveMaxExtendedX(chart)
     chart.xScale.domain([0, chart.currentMaxX])
@@ -508,39 +550,21 @@ function computeSeriesStats(chart) {
 
 // Flat presentation fields preserve Graph's shallow stats comparison contract.
 function overlayStats(renderer, chart) {
-    const eligible = renderer.assetClass !== 'interest'
+    const rangeActive = !!chart.selectedRange
+    const eligible = !rangeActive && renderer.assetClass !== 'interest'
     const showClassic = eligible && chart.showBollingerBands
     const showVolatility = eligible && chart.showVolatilityBands
-    const cached = renderer.bandData
-    const volatility = cached?.volatility?.stats
 
     return {
-        classicLabel: showClassic ? 'BB - 3-bar lagged price envelope' : '',
-        classicStatus: showClassic ? classicStatus(cached) : '',
-        volatilityLabel: showVolatility ? `${volatility?.isProvisional ? 'Vol Bands - provisional' : 'Calibrated Vol Bands'} 3-bar lagged range` : '',
+        classicLabel: showClassic ? 'Bollinger Bands' : '',
+        classicStatus: '',
+        volatilityLabel: showVolatility ? 'Calibrated Volume Bands' : '',
         volatilityStatus: '',
         classicReturn: showClassic ? returnText(fiveBarReturnRate(renderer, 'bollinger')) : '',
         volatilityReturn: showVolatility ? returnText(fiveBarReturnRate(renderer, 'volatility')) : ''
     }
 }
 
-// Present canonical sample counts without deriving another warmup rule in the UI.
-function classicStatus(cached) {
-    const result = cached?.bollinger
-    const minimum = Math.max(2, result?.meta?.minimumBars ?? 2)
-    const window = result?.meta?.warmup ?? 20
-    const usable = result?.stats?.windowBars ?? 0
-    if (usable < minimum) return `Insufficient history: ${usable}/${minimum} usable closes needed for an estimate.`
-    const lastBar = cached?.bars[cached.bars.length - 1]
-    const lastIndex = lastBar ? cached.indexByTime.get(lastBar.date.getTime()) : null
-    if (!Number.isFinite(result?.upper?.[lastIndex]) || !Number.isFinite(result?.lower?.[lastIndex])) {
-        return 'The latest window contains unusable closes; no latest estimate.'
-    }
-    return result?.stats?.isProvisional
-        ? `Early estimate from ${usable} usable closes; full window is ${window}.`
-        : ''
-}
-
 function returnText({ exits, percentage }) {
-    return exits ? `${percentage.toFixed(0)}% returned within 5 bars (${exits} exits)` : 'Not enough completed exits'
+    return exits ? `${percentage.toFixed(0)}% were in the estimated range within 5 bars (${exits} exits)` : 'Not enough completed exits'
 }

@@ -68,9 +68,11 @@ export function drawHistoricalBands(renderer, chart) {
 /** Count each exit once, using only completed five-bar follow-up windows. */
 export function fiveBarReturnRate(renderer, kind) {
     const points = renderer.bandPoints?.[kind] ?? []
+    // Cache indices address the full history, while a range view can contain
+    // only a slice of its bars. Match closes by timestamp, not array index.
+    const closeByTime = new Map((renderer.bandData?.bars ?? []).map(bar => [bar.date.getTime(), bar.close]))
     const bars = renderer.native.map(candle => {
-        const index = renderer.bandData?.indexByTime.get(candle.date.getTime())
-        const close = index == null ? null : renderer.bandData.bars[index]?.close
+        const close = closeByTime.get(candle.date.getTime())
         const point = points[candle._i]
         if (!Number.isFinite(close) || !Number.isFinite(point?.lower) || !Number.isFinite(point?.upper)) return null
         return close >= point.lower && close <= point.upper

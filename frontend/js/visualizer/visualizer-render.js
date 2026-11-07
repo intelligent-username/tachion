@@ -99,6 +99,14 @@ export function drawCandlestickMode(renderer, chart) {
 // Optional SMA and EMA overlay lines over the current candles.
 // Computed on native closes before union alignment, then mapped to union indices.
 export function drawMovingAverages(renderer, chart) {
+    if (chart.selectedRange) {
+        renderer.currentMaPoints = null
+        renderer.currentEmaPoints = null
+        renderer.indicators.maLine.attr('opacity', 0)
+        renderer.indicators.emaLine.attr('opacity', 0)
+        return
+    }
+
     const overlayLine = xyLine(chart.xScale, renderer.yScale)
     const native = renderer.native
     const closes = native.map(d => d.close)

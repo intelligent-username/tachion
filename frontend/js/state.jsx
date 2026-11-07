@@ -3,7 +3,7 @@
 // without affecting callback identities or closure semantics.
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react'
 import { fetchHistory, fetchPrediction, sendSearch } from './api'
-import { prepareCandles } from './visualizer/visualizer-data'
+import { normalizeRange, prepareCandles } from './visualizer/visualizer-data'
 import { loadOverlayPrefs, saveOverlayPrefs } from './prefs'
 
 // UI cap for series slots; actions still iterate the array
@@ -29,6 +29,7 @@ const initialState = {
     focusedSeriesId: null,
     predictions: {},
     timespan: '7d',
+    selectedRange: null,
     drawMovingAverage: false,
     drawExponentialMovingAverage: false,
     searchedHistory: {},
@@ -83,7 +84,7 @@ function resolveLegacyTarget(series, focused, primary, symbol, assetClass) {
 // Provider component
 export function StateProvider({ children }) {
     const [state, setState] = useState(() => ({ ...initialState, ...loadOverlayPrefs() }))
-    const prefetchInFlight = useRef(new Set())
+    const prefetchInFlight = useRef(new Map())
     const chartInstanceRef = useRef(null)
     const requestTokens = useRef({})
 
@@ -164,34 +165,24 @@ export function StateProvider({ children }) {
         return null
     }, [])
 
-    const prefetchHistory = useCallback(async (symbol, assetClass, currentTimespan) => {
-        if (!symbol || !assetClass) return
-        const prefetchTs = getPrefetchTimespan(currentTimespan)
-        if (!prefetchTs) return
-
-        const key = chartKey(assetClass, symbol, prefetchTs)
-        if (state.searchedHistory[key]) return
-        if (prefetchInFlight.current.has(key)) return
-
-        prefetchInFlight.current.add(key)
-        try {
-            const data = await fetchHistory(symbol, assetClass, prefetchTs)
-            if (Array.isArray(data) && data.length > 0) {
-                markSearched(key)
-            }
-        } catch {
-            // Silent background prefetch
-        } finally {
-            prefetchInFlight.current.delete(key)
+    // Fetch earlier bars for lagged indicators without changing visible chart data.
+    const finishHistoryFetch = useCallback((seriesId, token, symbol, assetClass, timespan, data) => {
+        const earlierTimespan = getPrefetchTimespan(timespan)
+        if (!earlierTimespan || !Array.isArray(data) || !data.length) return
+        const key = chartKey(assetClass, symbol, earlierTimespan)
+        let request = prefetchInFlight.current.get(key)
+        if (!request) {
+            request = fetchHistory(symbol, assetClass, earlierTimespan)
+            prefetchInFlight.current.set(key, request)
+            request.finally(() => prefetchInFlight.current.delete(key)).catch(() => {})
         }
-    }, [getPrefetchTimespan, state.searchedHistory])
-
-    // After a history fetch: warm the prefetch cache for larger timeframes
-    const finishHistoryFetch = useCallback((symbol, assetClass, timespan, data) => {
-        if (Array.isArray(data) && data.length > 0) {
-            prefetchHistory(symbol, assetClass, timespan)
-        }
-    }, [prefetchHistory])
+        request.then(history => {
+            if (!isCurrentToken(seriesId, token) || !Array.isArray(history) || !history.length) return
+            setState(prev => ({ ...prev, series: prev.series.map(slot =>
+                slot.id === seriesId && slot.symbol === symbol && slot.assetClass === assetClass
+                    ? { ...slot, bandHistory: history } : slot) }))
+        }).catch(() => {})
+    }, [getPrefetchTimespan])
 
     // Mark one slot loading, clear its data, and drop its stale prediction
     const beginSeriesLoad = (seriesId, symbol, assetClass, timespan) => patch(prev => {
@@ -199,12 +190,14 @@ export function StateProvider({ children }) {
         delete predictions[seriesId]
         return {
             timespan,
+            selectedRange: null,
             predictions,
             series: prev.series.map(s => s.id === seriesId ? {
                 ...s,
                 symbol,
                 assetClass,
                 data: [],
+                bandHistory: [],
                 // Reloading the same instrument keeps its visibility; a new one starts visible
                 hiddenLevel: s.symbol === symbol && s.assetClass === assetClass
                     ? (s.hiddenLevel ?? 0)
@@ -300,7 +293,7 @@ export function StateProvider({ children }) {
             const data = await fetchHistory(symbol, assetClass, resolvedTimespan)
             if (!isCurrentToken(seriesId, token)) return { ok: false, stale: true }
             applySeriesHistory(seriesId, data, key)
-            finishHistoryFetch(symbol, assetClass, resolvedTimespan, data)
+            finishHistoryFetch(seriesId, token, symbol, assetClass, resolvedTimespan, data)
             return { ok: true, id: seriesId, data, timespan: resolvedTimespan }
         } catch (err) {
             if (!isCurrentToken(seriesId, token)) return { ok: false, stale: true }
@@ -328,12 +321,14 @@ export function StateProvider({ children }) {
     // Mark every populated slot loading for a global timespan change
     const beginTimespanLoad = (timespan) => patch(prev => ({
         timespan,
+        selectedRange: null,
         predictions: {},
         series: prev.series.map(s => {
             if (!s.symbol || !s.assetClass) return s
             const key = chartKey(s.assetClass, s.symbol, timespan)
             return {
                 ...s,
+                bandHistory: [],
                 status: 'loading',
                 error: null,
                 message: prev.searchedHistory[key] ? 'Loading...' : 'Collecting Data...'
@@ -355,12 +350,21 @@ export function StateProvider({ children }) {
                 const data = await fetchHistory(slot.symbol, slot.assetClass, timespan)
                 if (!isCurrentToken(slot.id, tokens[slot.id])) return
                 applySeriesHistory(slot.id, data, chartKey(slot.assetClass, slot.symbol, timespan))
-                finishHistoryFetch(slot.symbol, slot.assetClass, timespan, data)
+                finishHistoryFetch(slot.id, tokens[slot.id], slot.symbol, slot.assetClass, timespan, data)
             } catch (err) {
                 if (isCurrentToken(slot.id, tokens[slot.id])) failSeriesLoad(slot.id, err)
             }
         }))
     }, [state.series, finishHistoryFetch])
+
+    // Stable actions: the chart callback and Reset pill both depend on these
+    const setSelectedRange = useCallback((range) => {
+        patch({ selectedRange: normalizeRange(range) })
+    }, [])
+
+    const clearSelectedRange = useCallback(() => {
+        patch({ selectedRange: null })
+    }, [])
 
     // Store one slot's prediction and mark it ready
     const applyPrediction = (seriesId, prediction) => patch(prev => ({
@@ -479,6 +483,9 @@ export function StateProvider({ children }) {
         loadingMessage: state.series.find(s => s.status === 'loading')?.message ?? null,
         error: state.series.find(s => s.error)?.error ?? null,
         setTimespan,
+        selectedRange: state.selectedRange,
+        setSelectedRange,
+        clearSelectedRange,
         setChartMode: (chartMode) => patch({ chartMode }),
         setDrawMovingAverage: (drawMovingAverage) => patch({ drawMovingAverage }),
         setDrawExponentialMovingAverage: (drawExponentialMovingAverage) => patch({ drawExponentialMovingAverage }),

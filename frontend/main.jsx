@@ -7,6 +7,7 @@ import Sidebar from './components/sidebar'
 import Graph from './components/graph'
 import Footer from './components/footer'
 import TimespanSelector from './components/timespan-selector'
+import ResetZoom from './components/reset-zoom'
 import TrendlinesTitle from './components/chart-title'
 import ChartToolbar from './components/chart-toolbar'
 import './styles.css'
@@ -19,7 +20,10 @@ export function App() {
 				<section className="chart-panel">
 					<div className="chart-header">
 						<TrendlinesTitle />
-						<TimespanSelector />
+						<div className="chart-header-actions">
+							<ResetZoom />
+							<TimespanSelector />
+						</div>
 					</div>
 					<Graph />
 					<ChartToolbar />

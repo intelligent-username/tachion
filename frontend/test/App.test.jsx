@@ -13,7 +13,10 @@ vi.mock('../components/graph', () => ({
 
 describe('App', () => {
   it('renders the app shell without crashing', () => {
+    // jsdom has no ResizeObserver; the selector observes the header layout.
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
     render(<App />)
     expect(screen.getByText('Tachion')).toBeTruthy()
+    vi.unstubAllGlobals()
   })
 })

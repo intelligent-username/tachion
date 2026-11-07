@@ -53,6 +53,10 @@ function applyPriceOpacity(chart, renderer) {
 
 function applyIndicatorOpacity(chart, renderer, kind, enabled, line) {
     if (!enabled || !line) return
+    if (chart.selectedRange) {
+        line.attr('opacity', 0)
+        return
+    }
 
     const target = resolveEmphasis(chart, renderer, kind)
     line
@@ -220,6 +224,8 @@ function findPointY(points, idx) {
 // Build combined tooltip HTML for the hovered union index. Empty slots are
 // skipped so a single populated slot keeps the original single-series markup.
 function buildTooltipContent(chart, idx, dateLabel) {
+    if (chart.selectedRange) return buildRangeTooltipContent(chart, idx, dateLabel)
+
     const renderers = visibleRenderers(chart)
 
     if (renderers.length === 1) {
@@ -228,6 +234,22 @@ function buildTooltipContent(chart, idx, dateLabel) {
 
     return (tooltipField(chart, 'time') ? row('Time', dateLabel) : '') +
         renderers.map(renderer => buildSeriesBlock(renderer, idx, chart)).join('')
+}
+
+// Zoomed views show only the date and closing price(s), matching the
+// price-graph-only presentation of range mode.
+function buildRangeTooltipContent(chart, idx, dateLabel) {
+    const renderers = visibleRenderers(chart)
+
+    if (renderers.length === 1) {
+        return priceRow(renderers[0].aligned?.[idx]?.close) + row('Time', dateLabel)
+    }
+
+    return row('Time', dateLabel) + renderers.map(renderer => {
+        const color = renderer.colors?.line ?? 'transparent'
+        return `<div style="border-left: 2px solid ${color}; padding-left: 6px; margin-top: 6px;">` +
+            `<div><strong>${escapeHtml(renderer.symbol)}:</strong> ${formatPrice(renderer.aligned?.[idx]?.close)}</div></div>`
+    }).join('')
 }
 
 // Position the tooltip near the cursor/candle without overflowing the container
@@ -358,6 +380,7 @@ function tooltipAnchorY(chart, idx) {
 }
 
 function handleMouseMove(chart, event) {
+    if (chart.rangeDrag) return
     const dates = chart.unionDates ?? []
     if (!dates.length) return
 
@@ -385,15 +408,20 @@ function handleMouseMove(chart, event) {
     positionTooltip(chart, cx, tooltipAnchorY(chart, idx))
 }
 
-function handleMouseLeave(chart) {
-    chart.hoverLine.attr('opacity', 0)
+export function hideHoverReadout(chart) {
+    chart.hoverLine?.attr('opacity', 0)
     hideHoverDots(chart)
-    chart.tooltip.style('opacity', 0)
+    chart.tooltip?.style('opacity', 0)
 
     if (chart.hoveredLine !== null) {
         chart.hoveredLine = null
         applyLineOpacities(chart)
     }
+}
+
+function handleMouseLeave(chart) {
+    if (chart.rangeDrag) return
+    hideHoverReadout(chart)
 }
 
 // Bind mousemove/mouseleave handlers: union snapping, crosshair, per-series dots,

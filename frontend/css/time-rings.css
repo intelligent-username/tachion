@@ -12,6 +12,9 @@
 .chart-header h1 {
 	flex: 0 0 auto;
 	white-space: nowrap;
+	line-height: 1;
+	position: relative;
+	top: -1px; /* Align the heading visible glyphs with the smaller text. */
 }
 
 .chart-title-wrap {
@@ -22,6 +25,15 @@
 	min-width: 0;
 	width: auto;
 	flex: 0 0 auto;
+}
+
+.chart-title-symbol {
+	display: inline-flex;
+	align-items: center;
+	line-height: 1;
+	font-size: 1rem;
+	font-weight: 600;
+	overflow-wrap: anywhere;
 }
 
 .chart-title-metrics {
@@ -44,6 +56,43 @@
 
 .chart-title-metrics.neutral {
 	color: rgba(238, 238, 238, 0.72);
+}
+
+.chart-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	margin-left: auto;
+	min-width: 0;
+	max-width: 100%;
+	flex: 0 1 auto;
+}
+
+.chart-header-actions .timespan-selector {
+	margin-left: 0;
+}
+
+.chart-reset-zoom {
+	flex: 0 0 auto;
+	border: 1px solid rgba(231, 76, 60, 0.55);
+	border-radius: 999px;
+	background: rgba(12, 18, 37, 0.65);
+	color: var(--text-main);
+	font-size: 0.75rem;
+	font-weight: 600;
+	padding: 0.32rem 0.65rem;
+	cursor: pointer;
+	transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.chart-reset-zoom:hover {
+	background: rgba(231, 76, 60, 0.18);
+	border-color: rgba(231, 76, 60, 0.85);
+}
+
+.chart-reset-zoom:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
 }
 
 .timespan-selector {
@@ -141,6 +190,12 @@
 
 	.chart-title-metrics {
 		font-size: 0.9rem;
+	}
+
+	.chart-header-actions {
+		width: 100%;
+		margin-left: 0;
+		flex-wrap: wrap;
 	}
 
 	.timespan-selector {

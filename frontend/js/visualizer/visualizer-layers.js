@@ -48,6 +48,30 @@ export function initChartSvg(container) {
         .attr('class', 'y-axis y-axis-right')
         .style('display', 'none')
 
+    // Drag-to-select window sits above the price graph but below the hover
+    // capture rect, so the topmost transparent rect keeps receiving pointers.
+    const rangeLayer = svg.append('g').attr('class', 'range-layer')
+
+    const rangeRect = rangeLayer.append('rect')
+        .attr('class', 'range-selection')
+        .attr('opacity', 0)
+
+    const rangeStartEdge = rangeLayer.append('line')
+        .attr('class', 'range-edge')
+        .attr('opacity', 0)
+
+    const rangeEndEdge = rangeLayer.append('line')
+        .attr('class', 'range-edge')
+        .attr('opacity', 0)
+
+    const rangeStartLabel = rangeLayer.append('text')
+        .attr('class', 'range-label range-start-label')
+        .attr('opacity', 0)
+
+    const rangeCurrentLabel = rangeLayer.append('text')
+        .attr('class', 'range-label range-current-label')
+        .attr('opacity', 0)
+
     const hoverLayer = svg.append('g').attr('class', 'hover-layer')
 
     const hoverLine = hoverLayer.append('line')
@@ -72,6 +96,8 @@ export function initChartSvg(container) {
         gridLayer, bandLayer, seriesCandlesLayer, seriesPriceLayer,
         indicatorLayer, predictionLayer, axisLayer,
         xAxis, leftYAxis, rightYAxis,
+        rangeLayer, rangeRect, rangeStartEdge, rangeEndEdge,
+        rangeStartLabel, rangeCurrentLabel,
         hoverLayer, hoverLine, hoverRect, tooltip
     }
 }
