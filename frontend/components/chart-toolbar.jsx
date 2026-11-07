@@ -38,12 +38,12 @@ const OVERLAY_CHECKBOXES = [
 	{
 		stateKey: 'drawBollingerBands', setterKey: 'setDrawBollingerBands',
 		label: 'Bollinger Bands (Classic)',
-		description: 'An average of the last 20 closes with lines two standard deviations above and below. This price envelope is not a forecast and does not predict reversals. Bars are 30 minutes. Bands reflect prices as delivered; provider adjustments may differ. Thin markets can be noisy.'
+		description: 'Bounds sit two standard deviations around an internal average of up to 20 closes; the average is not plotted. With 2-19 usable closes, bands are provisional estimates from available ticks. This price envelope is not a forecast and does not predict reversals. Bars are 30 minutes. Provider adjustments may differ; thin markets can be noisy.'
 	},
 	{
 		stateKey: 'drawVolatilityBands', setterKey: 'setDrawVolatilityBands',
 		label: 'Calibrated Vol Bands',
-		description: 'Recent price swings and the last 500 bars estimate a possible next-bar range. The widening 13-bar fan is approximate beyond the next bar. Bars are 30 minutes. Bands reflect prices as delivered; provider adjustments may differ. News and thin markets can change results abruptly. Informational only, not advice.'
+		description: 'Recent price swings estimate a possible next-bar range from available usable ticks. Short histories use provisional estimates while calibration builds toward a 500-bar sample; 95% target coverage is not guaranteed. The widening 13-bar fan is approximate beyond the next bar. Bars are 30 minutes. Provider adjustments, news and thin markets can change results. Informational only, not advice.'
 	}
 ]
 

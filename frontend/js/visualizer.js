@@ -82,9 +82,7 @@ export class TChart {
         this.unionIndexByTime = new Map()
         this.xScale = d3.scaleLinear()
         this.appliedPredictions = {}
-        this.subpanelCollapsed = { percentB: false, bandwidth: false }
-        this.subpanelDefaultsSet = false
-        this.lastExpandedSubpanel = null
+        this.percentBCollapsed = null
         this.subpanelLayout = { panels: [] }
         this.baseDates = []
         this.currentMaxX = 1
@@ -362,7 +360,7 @@ function applyNativeYDomain(renderer) {
     for (const points of Object.values(renderer.bandPoints ?? {})) {
         for (const point of points) {
             if (!point) continue
-            include(point.lower); include(point.upper); include(point.basis)
+            include(point.lower); include(point.upper)
         }
     }
     for (const point of renderer.predictionPoints) {
@@ -531,17 +529,34 @@ function overlayStats(renderer, chart) {
     const showVolatility = eligible && chart.showVolatilityBands
     const cached = renderer.bandData
     const volatility = cached?.volatility?.stats
-    const hasClassic = renderer.bandPoints?.bollinger.some(point => Number.isFinite(point?.basis))
-    const offTarget = showVolatility && volatility?.status === 'ready' &&
+    const volatilityText = showVolatility ? bandStatus(cached) : ''
+    const offTarget = showVolatility && !volatility?.isProvisional && volatility?.status === 'ready' &&
         Number.isFinite(volatility.realizedCoverage) &&
         Math.abs(volatility.realizedCoverage - volatility.targetCoverage) > 0.03
     return {
-        classicLabel: showClassic ? 'BB — mean-reversion envelope (informational)' : '',
-        classicStatus: showClassic && !hasClassic ? 'Insufficient history — needs 20 usable closes.' : '',
-        volatilityLabel: showVolatility ? 'Calibrated Vol Bands — possible next-bar range (+13-bar fan)' : '',
-        volatilityStatus: showVolatility && (volatility?.status !== 'ready' || volatility?.realizedCoverage == null) ? bandStatus(cached) : '',
-        coverageText: showVolatility ? bandStatus(cached) : '',
+        classicLabel: showClassic ? 'BB - descriptive price envelope' : '',
+        classicStatus: showClassic ? classicStatus(cached) : '',
+        volatilityLabel: showVolatility ? `${volatility?.isProvisional ? 'Vol Bands - provisional' : 'Calibrated Vol Bands - possible'} next-bar range${cached?.volatility?.fan ? ' (+13-bar approximate fan)' : ''}` : '',
+        volatilityStatus: volatilityText,
+        coverageText: volatilityText,
         coverageOffTarget: !!offTarget,
         coverageWarning: offTarget ? `Observed coverage differs from ${(volatility.targetCoverage * 100).toFixed(0)}% by more than 3 percentage points.` : ''
     }
+}
+
+// Present canonical sample counts without deriving another warmup rule in the UI.
+function classicStatus(cached) {
+    const result = cached?.bollinger
+    const minimum = Math.max(2, result?.meta?.minimumBars ?? 2)
+    const window = result?.meta?.warmup ?? 20
+    const usable = result?.stats?.windowBars ?? 0
+    if (usable < minimum) return `Insufficient history: ${usable}/${minimum} usable closes needed for an estimate.`
+    const lastBar = cached?.bars[cached.bars.length - 1]
+    const lastIndex = lastBar ? cached.indexByTime.get(lastBar.date.getTime()) : null
+    if (!Number.isFinite(result?.upper?.[lastIndex]) || !Number.isFinite(result?.lower?.[lastIndex])) {
+        return 'The latest window contains unusable closes; no latest estimate.'
+    }
+    return result?.stats?.isProvisional
+        ? `Early estimate from ${usable} usable closes; full window is ${window}.`
+        : ''
 }

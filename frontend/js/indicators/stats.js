@@ -43,15 +43,26 @@ export class SortedWindow {
         const fraction = index - low
         return this.values[low] * (1 - fraction) + this.values[Math.ceil(index)] * fraction
     }
+
+    clone() {
+        const copy = new SortedWindow(this.capacity)
+        copy.values = this.values.slice()
+        copy.queue = this.queue.slice()
+        copy.head = this.head
+        copy.size = this.size
+        return copy
+    }
 }
 
 /** Seed from the first 20 observed returns, then update variance causally. */
-export function createEwmaVol(lambda, seedWindow = 20) {
-    let count = 0
-    let sum = 0
-    let variance = null
+export function createEwmaVol(lambda, seedWindow = 20, snapshot = null) {
+    let count = snapshot?.count ?? 0
+    let sum = snapshot?.sum ?? 0
+    let variance = snapshot?.variance ?? null
     return {
         get variance() { return variance },
+        get provisionalVariance() { return variance ?? (count ? sum / count : null) },
+        clone() { return createEwmaVol(lambda, seedWindow, { count, sum, variance }) },
         push(value) {
             if (!Number.isFinite(value) || !Number.isFinite(value * value)) return variance
             const squared = value * value
@@ -94,13 +105,26 @@ export class YangZhangRoller {
     }
 
     get variance() {
-        const m = this.window
-        if (m < 2 || this.rows.length < m) return null
+        return this.window < 2 || this.rows.length < this.window ? null : this.provisionalVariance
+    }
+
+    get provisionalVariance() {
+        const m = this.rows.length
+        if (!m) return null
         const [dx, dx2, co, co2, rs] = this.sums
+        if (m === 1) return Math.max(0, dx2 + co2 + rs)
         const overnight = Math.max(0, (dx2 - dx * dx / m) / (m - 1))
         const intraday = Math.max(0, (co2 - co * co / m) / (m - 1))
         const k = 0.34 / (1.34 + (m + 1) / (m - 1))
         // Canonical YZ weights close/open variance by k and mean RS by 1-k.
         return Math.max(0, overnight + k * intraday + (1 - k) * rs / m)
+    }
+
+    clone() {
+        const copy = new YangZhangRoller(this.window)
+        copy.rows = this.rows.map(row => row.slice())
+        copy.head = this.head
+        copy.sums = this.sums.slice()
+        return copy
     }
 }

@@ -6,7 +6,7 @@ export const BAND_COLORS = { bollinger: '#4393c3', volatility: '#d6604d' }
 /** Create passive band paths below the candle layer. */
 export function createBandPaths(group, kind, dash = null) {
     const paths = {}
-    for (const part of ['fill', 'upper', 'lower', 'basis']) {
+    for (const part of ['fill', 'upper', 'lower']) {
         paths[part] = group.append('path').attr('class', `${kind}-${part}`)
             .attr('fill', part === 'fill' ? BAND_COLORS[kind] : 'none')
             .attr('fill-opacity', kind === 'bollinger' ? 0.07 : 0.08)
@@ -27,7 +27,7 @@ export function drawBandPaths(paths, points, xScale, yScale) {
     const area = d3.area().defined(valid).x(point => xScale(point.x))
         .y0(point => yScale(point.lower)).y1(point => yScale(point.upper))
     paths.fill.datum(points).attr('d', area)
-    for (const part of ['upper', 'lower', 'basis']) {
+    for (const part of ['upper', 'lower']) {
         const line = d3.line().defined(point => valid(point) && Number.isFinite(point[part]))
             .x(point => xScale(point.x)).y(point => yScale(point[part]))
         paths[part].datum(points).attr('d', line)
@@ -44,8 +44,7 @@ export function bandPoints(renderer, kind) {
         const index = cached.indexByTime.get(candle.date.getTime())
         if (index == null) return null
         return { x: candle._i, lower: result.lower[index], upper: result.upper[index],
-            basis: (result.middle ?? result.basis)[index],
-            percentB: result.percentB?.[index] ?? null, bandwidth: result.bandwidth?.[index] ?? null }
+            percentB: result.percentB?.[index] ?? null, provisional: result.provisional[index] }
     })
 }
 

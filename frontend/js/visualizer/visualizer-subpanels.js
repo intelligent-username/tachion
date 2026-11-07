@@ -1,53 +1,25 @@
-// Classic-only supporting strips. Values come from the mapped band geometry.
+// Classic-only %B strip. Values come from the mapped band geometry.
 import * as d3 from 'd3'
 
 const SUBPANEL_HEIGHT = 110
 const SUBPANEL_BREAKPOINT = 640
 const HEADER_HEIGHT = 44
-const PANELS = [
-    { key: 'percentB', label: '%B', domain: [0, 1], ticks: [0, 0.5, 1] },
-    { key: 'bandwidth', label: 'Bandwidth', domain: [0, 1.5], ticks: [0, 0.75, 1.5] }
-]
+const PERCENT_B_PANEL = { key: 'percentB', label: '%B', domain: [0, 1], ticks: [0, 0.5, 1] }
 
 /** Sole height-budget owner; constrained strips yield to the price plot. */
 export function resolveSubpanelLayout(chart, { fullWidth, availableHeight, minPriceHeight }) {
-    if (!chart.subpanelDefaultsSet) {
-        const collapsed = fullWidth < SUBPANEL_BREAKPOINT
-        chart.subpanelCollapsed = { percentB: collapsed, bandwidth: collapsed }
-        chart.subpanelDefaultsSet = true
-    }
+    if (chart.percentBCollapsed == null) chart.percentBCollapsed = fullWidth < SUBPANEL_BREAKPOINT
     const active = chart.showBollingerBands && chart.series.some(renderer =>
         renderer.native.length && renderer.assetClass !== 'interest')
     if (!active) return { priceHeight: availableHeight, xAxisY: availableHeight, panels: [] }
 
-    // At exceptionally short heights, put the two collapsed headers side by
-    // side rather than stealing the minimum price plot height.
-    const sharedHeader = availableHeight < minPriceHeight + HEADER_HEIGHT * PANELS.length
-    const headerBudget = HEADER_HEIGHT * (sharedHeader ? 1 : PANELS.length)
-    let extra = Math.max(0, availableHeight - minPriceHeight - headerBudget)
-    const expanded = new Set()
-    const priority = [...PANELS].sort((a, b) =>
-        Number(b.key === chart.lastExpandedSubpanel) - Number(a.key === chart.lastExpandedSubpanel))
-    for (const panel of priority) {
-        if (!sharedHeader && !chart.subpanelCollapsed[panel.key] && extra >= SUBPANEL_HEIGHT - HEADER_HEIGHT) {
-            expanded.add(panel.key)
-            extra -= SUBPANEL_HEIGHT - HEADER_HEIGHT
-        }
-    }
-    const priceHeight = Math.max(minPriceHeight, availableHeight - headerBudget -
-        expanded.size * (SUBPANEL_HEIGHT - HEADER_HEIGHT))
-    let top = priceHeight
-    const panels = PANELS.map((panel, index) => {
-        const isExpanded = expanded.has(panel.key)
-        const height = isExpanded ? SUBPANEL_HEIGHT : HEADER_HEIGHT
-        const layout = { ...panel, top, height, expanded: isExpanded,
-            left: sharedHeader ? index * chart.width / 2 : 0,
-            width: sharedHeader ? chart.width / 2 : chart.width,
-            canExpand: !sharedHeader && availableHeight >= minPriceHeight + HEADER_HEIGHT + SUBPANEL_HEIGHT }
-        if (!sharedHeader) top += height
-        return layout
-    })
-    return { priceHeight, panels, xAxisY: sharedHeader ? priceHeight + HEADER_HEIGHT : top }
+    const canExpand = availableHeight >= minPriceHeight + SUBPANEL_HEIGHT
+    const expanded = !chart.percentBCollapsed && canExpand
+    const height = expanded ? SUBPANEL_HEIGHT : HEADER_HEIGHT
+    const priceHeight = Math.max(0, availableHeight - height)
+    const panel = { ...PERCENT_B_PANEL, top: priceHeight, height, expanded,
+        width: chart.width, canExpand }
+    return { priceHeight, panels: [panel], xAxisY: availableHeight }
 }
 
 /** Release strip paths and controls without changing the local preferences. */
@@ -56,7 +28,7 @@ export function clearSubpanels(chart) {
     chart.defs.selectAll('.subpanel-clip').remove()
 }
 
-/** Draw two shared, clipped strips with keyed per-series paths and native buttons. */
+/** Draw one clipped %B strip with keyed per-series paths and a native button. */
 export function drawSubpanels(chart) {
     const panels = chart.subpanelLayout.panels
     if (!panels.length) { clearSubpanels(chart); return }
@@ -71,7 +43,7 @@ export function drawSubpanels(chart) {
                 .append('xhtml:button').attr('type', 'button').attr('class', 'chart-subpanel-toggle')
             return group
         })
-        .attr('transform', panel => `translate(${panel.left},${panel.top})`)
+        .attr('transform', panel => `translate(0,${panel.top})`)
 
     groups.each(function (panel) {
         const group = d3.select(this)
@@ -85,8 +57,7 @@ export function drawSubpanels(chart) {
             .attr('title', panel.canExpand ? null : 'More chart height is needed to expand this strip.')
             .text(`${panel.expanded ? '−' : '+'} ${panel.label}`)
             .on('click', () => {
-                chart.subpanelCollapsed[panel.key] = panel.expanded
-                if (!panel.expanded) chart.lastExpandedSubpanel = panel.key
+                chart.percentBCollapsed = panel.expanded
                 chart.redrawFromCache()
             })
 
@@ -99,7 +70,7 @@ export function drawSubpanels(chart) {
             .attr('width', panel.width).attr('height', Math.max(0, plotBottom - plotTop))
         const paths = group.select('.subpanel-paths').attr('id', contentId)
             .attr('clip-path', `url(#${clipId})`).attr('role', 'img')
-            .attr('aria-label', `${panel.label} for ${symbols}; scale ${panel.domain[0]} to ${panel.domain[1]}.`)
+            .attr('aria-label', `${panel.label} for ${symbols}; 0 is the lower band, 1 is the upper band. Values outside 0 to 1 are clipped.`)
             .attr('aria-hidden', String(!panel.expanded))
         const line = d3.line().defined(point => point && Number.isFinite(point[panel.key]))
             .x(point => chart.xScale(point.x)).y(point => yScale(point[panel.key]))

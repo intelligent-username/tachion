@@ -15,8 +15,8 @@ export function fanPoints(renderer, chart) {
     }
     const start = last ? chart.unionIndexByTime.get(last.date.getTime()) : null
     if (start == null) return []
-    return [{ x: start, lower: last.close, upper: last.close, basis: last.close },
-        ...fan.upper.map((upper, i) => ({ x: start + i + 1, upper, lower: fan.lower[i], basis: last.close }))]
+    return [{ x: start, lower: last.close, upper: last.close },
+        ...fan.upper.map((upper, i) => ({ x: start + i + 1, upper, lower: fan.lower[i] }))]
 }
 
 /** Reuse band geometry for the frozen-volatility future tail. */

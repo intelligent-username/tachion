@@ -1,5 +1,6 @@
 // Hover interactivity: line highlighting, crosshair, tooltip content/positioning
 import * as d3 from 'd3'
+import { bandStatus } from './visualizer-indicators'
 
 const HOVER_DISTANCE_PX = 14
 const DIM_OPACITY = 0.15
@@ -181,15 +182,22 @@ function bandRows(renderer, idx, chart) {
     let html = ''
     if (chart.showBollingerBands) {
         const point = mapped?.bollinger?.[idx]
-        html += row('BB lower / middle / upper',
-            [point?.lower, point?.basis, point?.upper].map(formatPrice).join(' / '))
+        html += row(point?.provisional ? 'BB lower / upper (provisional)' : 'BB lower / upper',
+            [point?.lower, point?.upper].map(formatPrice).join(' / '))
         html += row('%B', Number.isFinite(point?.percentB) ? point.percentB.toFixed(3) : '—')
-        html += row('Bandwidth', Number.isFinite(point?.bandwidth) ? point.bandwidth.toFixed(4) : '—')
+        if (point?.provisional && Number.isFinite(point.lower) && Number.isFinite(point.upper)) {
+            html += '<div class="chart-tooltip-band-status">Hovered Classic bounds use a shortened rolling window.</div>'
+        }
     }
     if (chart.showVolatilityBands) {
         const point = mapped?.volatility?.[idx]
-        html += row('Calibrated lower / basis / upper',
-            [point?.lower, point?.basis, point?.upper].map(formatPrice).join(' / '))
+        html += row(point?.provisional ? 'Vol Bands lower / upper (provisional)' : 'Vol Bands lower / upper',
+            [point?.lower, point?.upper].map(formatPrice).join(' / '))
+        if (point?.provisional && Number.isFinite(point.lower) && Number.isFinite(point.upper)) {
+            html += '<div class="chart-tooltip-band-status">Hovered Vol Bands are uncalibrated; coverage is not established.</div>'
+        }
+        const status = bandStatus(renderer.bandData)
+        if (status) html += `<div class="chart-tooltip-band-status"><strong>Latest calibration:</strong> ${escapeHtml(status)}</div>`
     }
     return html
 }

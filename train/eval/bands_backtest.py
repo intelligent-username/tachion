@@ -7,9 +7,12 @@ No report is produced merely by importing this module.
 The plan names four configurations without defining the comparison baselines:
 this harness uses descriptive Classic Bollinger, Gaussian EWMA, empirical EWMA,
 and empirical Yang-Zhang. Classic includes the current close and is NOT a forecast;
-its nominal 95% score is only descriptive, not evidence of predictive coverage.
-The Gaussian baseline uses the same causal EWMA variance as empirical EWMA.
-Only next-bar intervals are scored, not the approximate 13-bar fan.
+its score is only descriptive, not evidence of predictive coverage. The 95% target
+is a nominal scoring reference, not an established coverage guarantee.
+The Gaussian baseline uses the same causal EWMA variance as empirical EWMA and
+waits for its mature empirical flag, excluding immature variance and residual
+warmup alike. Provisional empirical bounds are never scored. Only next-bar
+volatility intervals are scored, not the approximate 13-bar fan.
 
 Three asset groups are equities, crypto, and forex/commodities; original asset
 classes remain separate in every row. Each snapshot also gets three chronological
@@ -21,8 +24,9 @@ observations. Overlapping windows are diagnostic slices, not independent samples
 Calm/turbulent labels compare prior-20-return RMS with the median of the previous
 500 such RMS estimates. Both quantities exclude the return being scored. Missing
 regime history is reported as unknown, never silently classified as calm. Scores
-use the intersection of usable intervals across all four configurations, keeping
-comparisons on identical bars. Per-config availability is reported separately.
+use the intersection of finite usable intervals across all four configurations,
+after both empirical estimators mature and the Gaussian warmup above, keeping
+comparisons on identical bars. Per-config post-warmup availability is reported separately.
 Prices are used as delivered, with no smoothing, resampling, or adjustment.
 """
 
@@ -116,18 +120,23 @@ def compute_intervals(bars: list[dict], values: np.ndarray,
     basis = np.full(len(bars), np.nan)
     indices = np.flatnonzero(valid)
     basis[indices[1:]] = values[indices[:-1], 3]
-    # The reference exposes pre-update variance, including pre-quantile warmup.
-    sigma = np.sqrt(np.maximum(ewma["variance"], 0))
+    # Use the empirical EWMA maturity flag for the Gaussian baseline too: this
+    # deliberately waits beyond variance seeding until residual calibration matures.
+    sigma = np.sqrt(np.maximum(np.where(ewma["provisional"], np.nan, ewma["variance"]), 0))
     sigma = np.maximum(sigma, 1e-8)
     normal_quantile = NormalDist().inv_cdf((1 + COVERAGE) / 2)
     with np.errstate(over="ignore", invalid="ignore"):
         gaussian_lower = basis * np.exp(-normal_quantile * sigma)
         gaussian_upper = basis * np.exp(normal_quantile * sigma)
+    empirical = {
+        name: tuple(np.where(result["provisional"], np.nan, result[side])
+                    for side in ("lower", "upper"))
+        for name, result in (("empirical_ewma", ewma), ("empirical_yang_zhang", yz))
+    }
     return {
         "classic_bollinger": (classic["lower"], classic["upper"]),
         "gaussian_ewma": (gaussian_lower, gaussian_upper),
-        "empirical_ewma": (ewma["lower"], ewma["upper"]),
-        "empirical_yang_zhang": (yz["lower"], yz["upper"]),
+        **empirical,
     }
 
 

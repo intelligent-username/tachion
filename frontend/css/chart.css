@@ -99,6 +99,14 @@
   min-width: 0;
 }
 
+.chart-tooltip-band-status {
+  max-width: min(280px, 70vw);
+  margin-top: 0.25rem;
+  color: #c2c7d0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 /* D3 owns only this host; React owns the legend and loading siblings. */
 .chart-svg-host {
   position: relative;
@@ -117,6 +125,7 @@
   color: var(--text-main);
   font: 600 0.75rem var(--font-main, system-ui, sans-serif);
   text-align: left;
+  line-height: 1.35;
   cursor: pointer;
   touch-action: manipulation;
 }

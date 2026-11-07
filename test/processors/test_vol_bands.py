@@ -7,11 +7,12 @@ from core.processor.bands import volatility_bands
 
 def test_ewma_worked_example() -> None:
     # Returns are 0.1, -0.1, 0.2, 0.0, 0.1; seed=(.01+.01)/2.
-    # With decay .5, successive prior variances are .01, .025, .0125.
+    # The initial flat OHLC scale is zero; one prior return gives provisional .01.
+    # With decay .5, mature prior variances remain .01, .025, .0125.
     closes = np.exp([0.0, 0.1, 0.0, 0.2, 0.2, 0.3])
     bars = [{"open": value, "high": value, "low": value, "close": value} for value in closes]
     result = volatility_bands(bars, decay=0.5, window=2, quantile_window=1)
-    np.testing.assert_allclose(result["variance"], [np.nan, np.nan, np.nan, .01, .025, .0125],
+    np.testing.assert_allclose(result["variance"], [np.nan, 0.0, .01, .01, .025, .0125],
                                equal_nan=True, atol=1e-12)
 
 
