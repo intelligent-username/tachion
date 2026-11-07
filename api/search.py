@@ -1,10 +1,10 @@
 from core.processor.ip import (
     InferenceProcessorError,
     background_preprocess_ticker,
-    format_ohlcv,
     get_historical_data,
     slice_values_by_timespan,
 )
+from core.processor.history_utils import format_ohlcv
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel
 

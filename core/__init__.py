@@ -9,11 +9,11 @@ from .apis.oaapi import OandaAPI, call_specific_oanda
 from .apis.tdapi import TwelveDataAPI, call_specific_td
 from .apis.yfapi import YFinanceAPI, call_specific_yf
 from .processor.dw import add_crypto_date_features, add_date_features
+from .processor.history_utils import format_ohlcv
 from .processor.ip import (
 	PREPROCESSED_CACHE,
 	InferenceProcessorError,
 	background_preprocess_ticker,
-	format_ohlcv,
 	get_historical_data,
 	parse_timespan_to_days,
 	slice_values_by_timespan,

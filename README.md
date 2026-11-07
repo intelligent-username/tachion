@@ -104,11 +104,19 @@ so stop the other one first.
 docker dev
 ```
 
+On a fresh checkout, build the GPU-enabled dev image once before starting it:
+
+```bash
+docker compose --profile dev-image build backend-dev-image
+```
+
+The dev container keeps its Linux virtual environment and uv download cache in
+persistent Docker volumes. It runs `uv sync --locked` at startup, so dependency
+changes update the existing environment without rebuilding the CUDA image. After
+changing Python dependencies, update `uv.lock` with `uv lock` before restarting.
+
 - Backend edits (`api/`, `core/`, `train/`) auto-reload. No rebuild.
 - Frontend edits hot-reload at [`localhost:3000`](https://localhost:3000). No rebuild.
-
-After changing dependencies in `pyproject.toml`, build once manually:
-`docker compose --profile dev build`.
 
 To stop: `docker devstop`.
 

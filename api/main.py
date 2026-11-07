@@ -50,3 +50,8 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
+
+@app.get("/v1/models")
+async def list_models():
+    return {"object": "list", "data": []}

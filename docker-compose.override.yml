@@ -7,15 +7,24 @@
 services:
   backend-dev:
     profiles: ["dev"]
-    build: .
+    image: tachion-backend-dev:latest
     container_name: tachion-backend-dev
+    command:
+      - sh
+      - -c
+      - uv sync --locked --no-install-project && exec uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
     env_file: .env
     environment:
       # watchfiles needs polling for Docker Desktop (WSL2/NTFS) file events
       WATCHFILES_FORCE_POLLING: "1"
+      UV_CACHE_DIR: /root/.cache/uv
     volumes:
+      - ./pyproject.toml:/app/pyproject.toml:ro
+      - ./uv.lock:/app/uv.lock:ro
+      - backend_dev_venv:/app/.venv
+      - backend_dev_uv_cache:/root/.cache/uv
       - ./api:/app/api
       - ./core:/app/core
       - ./train:/app/train
@@ -32,6 +41,11 @@ services:
       retries: 3
       start_period: 30s
 
+  backend-dev-image:
+    profiles: ["dev-image"]
+    image: tachion-backend-dev:latest
+    build: .
+
   frontend-dev:
     profiles: ["dev"]
     container_name: tachion-frontend-dev
@@ -41,7 +55,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: build
-    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    command:
+      - sh
+      - -c
+      - npm install --no-audit --no-fund && exec npm run dev -- --host 0.0.0.0
     environment:
       # vite.config.js proxies /api here (prod nginx does this instead)
       VITE_API_TARGET: http://backend-dev:8000
@@ -57,3 +74,5 @@ services:
 
 volumes:
   frontend_dev_node_modules:
+  backend_dev_venv:
+  backend_dev_uv_cache:

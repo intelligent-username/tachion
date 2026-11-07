@@ -34,6 +34,7 @@ if (names.some((name) => !Object.hasOwn(suites, name)) || [...options].some((opt
 }
 
 const children = new Set();
+const suiteStates = new Map(names.map((name) => [name, 'queued']));
 let interrupted = false;
 const onInterrupt = () => {
   interrupted = true;
@@ -41,6 +42,32 @@ const onInterrupt = () => {
 };
 process.on('SIGINT', onInterrupt);
 process.on('SIGTERM', onInterrupt);
+
+const isTty = Boolean(process.stderr.isTTY);
+const barWidth = 18;
+let animationFrame = 0;
+let barsDrawn = false;
+
+function drawProgress() {
+  if (!isTty) return;
+  if (barsDrawn) process.stderr.write(`\x1b[${names.length}A`);
+
+  const position = animationFrame++ % barWidth;
+  for (const name of names) {
+    const status = suiteStates.get(name);
+    const bar = Array.from({ length: barWidth }, (_, index) => index === position ? '█' : '░').join('');
+    const line = status === 'running'
+      ? `${name.padEnd(8)} [${bar}] running`
+      : `${status === 'passed' ? '✓' : status.startsWith('failed') ? '✗' : '·'} ${name}: ${status}`;
+    process.stderr.write(`\r\x1b[2K${line}\n`);
+  }
+  barsDrawn = true;
+}
+
+function setSuiteStatus(name, status) {
+  suiteStates.set(name, status);
+  drawProgress();
+}
 
 function runSuite(name) {
   const { command } = suites[name];
@@ -51,6 +78,7 @@ function runSuite(name) {
     ? spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'npm.cmd', ...args], { cwd: root, windowsVerbatimArguments: true })
     : spawn(command, args, { cwd: root, shell: false });
   children.add(child);
+  setSuiteStatus(name, 'running');
   let output = '';
   let pending = '';
   const decoder = new StringDecoder('utf8');
@@ -79,6 +107,7 @@ function runSuite(name) {
       output += `launch failed: ${error.message}\n`;
       if (verbose) process.stdout.write(`launch failed: ${error.message}\n`);
       children.delete(child);
+      setSuiteStatus(name, 'failed (launch error)');
       resolve({ name, status: 1, output });
     });
     child.once('close', (code) => {
@@ -86,7 +115,9 @@ function runSuite(name) {
       settled = true;
       emit(Buffer.alloc(0), true);
       children.delete(child);
-      resolve({ name, status: interrupted ? 1 : (code ?? 1), output });
+      const status = interrupted ? 1 : (code ?? 1);
+      setSuiteStatus(name, status === 0 ? 'passed' : `failed (${status})`);
+      resolve({ name, status, output });
     });
   });
 }
@@ -112,17 +143,16 @@ function testCounts(output) {
   return undefined;
 }
 
-const isTty = process.stderr.isTTY && !verbose;
 if (!isTty) process.stderr.write(`Running ${names.join(' + ')}…\n`);
-const frames = ['▰' + '▱'.repeat(15), '▱' + '▰' + '▱'.repeat(14), '▱'.repeat(2) + '▰' + '▱'.repeat(13)];
-let frame = 0;
-const animation = isTty ? setInterval(() => {
-  process.stderr.write(`\r${names.join(' + ')}  ${frames[frame++ % frames.length]}`);
-}, 140) : undefined;
+drawProgress();
+const animation = isTty ? setInterval(drawProgress, 140) : undefined;
 const results = await Promise.all(names.map(runSuite));
-if (animation) {
-  clearInterval(animation);
-  process.stderr.write('\r\x1b[2K');
+if (animation) clearInterval(animation);
+
+if (!isTty) {
+  for (const { name, status } of results) {
+    process.stdout.write(`${name}: ${status === 0 ? 'PASS' : `FAIL (${status})`}\n`);
+  }
 }
 
 if (selected === 'lint') {
