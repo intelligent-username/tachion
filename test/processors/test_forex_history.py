@@ -77,7 +77,7 @@ def test_opposite_history_avoids_providers(history, monkeypatch, location):
     result = ip.get_historical_data('EUR_USD', 'forex', '1d')
     assert result[0]['open'] == 0.5
     assert rows[0]['open'] == 2
-    assert ip.RAW_HISTORY_CACHE['forex:EUR_USD']['rows'] == result
+    assert ip.FOREX_MERGED_CACHE['EUR_USD']['rows'] == result
     history.writer.assert_not_called()
     fetch.assert_not_called()
 
@@ -89,6 +89,21 @@ def test_direct_rows_win_collision(history):
     direct[0]['close'] = 3
     ip.RAW_HISTORY_CACHE['forex:EUR_USD'] = {'rows': direct}
     assert ip.get_historical_data('EUR_USD', 'forex', '1d')[0]['close'] == 3
+
+
+def test_alternating_directions_reuse_merged_cache(history, monkeypatch):
+    ip = history.ip
+    rows = covered_rows(history.now)
+    ip.RAW_HISTORY_CACHE['forex:EUR_USD'] = {'rows': rows}
+
+    assert ip.get_historical_data('EUR_USD', 'forex', '1d')[0]['open'] == 2
+    assert ip.get_historical_data('USD_EUR', 'forex', '1d')[0]['open'] == 0.5
+
+    normalize = Mock(side_effect=AssertionError('Merged cache should be reused'))
+    monkeypatch.setattr(ip, 'normalize_forex_values', normalize)
+    assert ip.get_historical_data('EUR_USD', 'forex', '1d')[0]['open'] == 2
+    assert ip.get_historical_data('USD_EUR', 'forex', '1d')[0]['open'] == 0.5
+    normalize.assert_not_called()
 
 
 @pytest.mark.parametrize('age,expected_calls', [(24, 0), (25, 0), (31, 1)])

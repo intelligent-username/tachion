@@ -59,6 +59,11 @@ PREPROCESSED_LOCK = Lock()
 # In-memory cache for raw ticker history to avoid repeated file reads.
 RAW_HISTORY_CACHE: dict[str, dict] = {}
 RAW_HISTORY_LOCK = Lock()
+# Merged/normalized FOREX histories keyed by the requested direction. The
+# signature identifies the source cache entries, so unchanged histories skip
+# reciprocal conversion and sorting entirely.
+FOREX_MERGED_CACHE: dict[str, dict] = {}
+FOREX_MERGED_CACHE_LIMIT = 64
 FOREX_PAIR_LOCKS: dict[tuple[str, str], Lock] = {}
 FOREX_PAIR_LOCKS_LOCK = Lock()
 FOREX_BOOTSTRAP_PAGES = 35
@@ -422,13 +427,48 @@ def background_preprocess_ticker(asset_class: str, symbol: str, full_rows: list[
 		}
 
 
-def _load_local_history(asset_class: str, symbol: str) -> list[dict]:
+def _load_local_history_entry(asset_class: str, symbol: str) -> dict:
+	"""Return the cached history entry, loading and caching the file once."""
 	key = f'{asset_class}:{symbol}'
 	with RAW_HISTORY_LOCK:
 		cached = RAW_HISTORY_CACHE.get(key)
-		if cached is not None:
-			return list(cached.get('rows', []))
-	return read_raw_data(raw_file_path(asset_class, symbol))
+	if cached is not None:
+		return cached
+	entry = {
+		'rows': read_raw_data(raw_file_path(asset_class, symbol)),
+		'loaded_at': datetime.datetime.now(datetime.UTC),
+	}
+	with RAW_HISTORY_LOCK:
+		return RAW_HISTORY_CACHE.setdefault(key, entry)
+
+
+def _merged_forex_values(symbol: str, direct_entry: dict, opposite_entry: dict) -> list[dict]:
+	"""Normalize both directions once per source-history version."""
+	direct_rows = direct_entry.get('rows')
+	opposite_rows = opposite_entry.get('rows')
+	if not isinstance(direct_rows, list):
+		direct_rows = []
+	if not isinstance(opposite_rows, list):
+		opposite_rows = []
+	signature = (
+		id(direct_rows), len(direct_rows), direct_entry.get('loaded_at'),
+		id(opposite_rows), len(opposite_rows), opposite_entry.get('loaded_at'),
+	)
+	with RAW_HISTORY_LOCK:
+		cached = FOREX_MERGED_CACHE.get(symbol)
+		if cached is not None and cached.get('signature') == signature:
+			return cached.get('rows', [])
+	merged = _merge_values(
+		normalize_forex_values(opposite_rows, inverse=True),
+		normalize_forex_values(direct_rows),
+	)
+	with RAW_HISTORY_LOCK:
+		# Cache the direction-specific result. Source entries stay untouched so
+		# alternating directions keep stable signatures and stay cache hits.
+		FOREX_MERGED_CACHE[symbol] = {'signature': signature, 'rows': merged}
+		if len(FOREX_MERGED_CACHE) > FOREX_MERGED_CACHE_LIMIT:
+			FOREX_MERGED_CACHE.pop(next(iter(FOREX_MERGED_CACHE)))
+	return merged
 
 
 def get_historical_data(symbol: str, asset_class: str, timespan: str = 'max', interval: str = '30m') -> list[dict]:
@@ -456,15 +496,9 @@ def _get_historical_data_unlocked(symbol: str, asset_class: str, timespan: str, 
 		cached = RAW_HISTORY_CACHE.get(cache_key)
 
 	if asset_class == 'forex':
-		direct = _load_local_history('forex', symbol)
-		opposite = _load_local_history('forex', inverse_forex_symbol(symbol))
-		existing_values = _merge_values(
-			normalize_forex_values(opposite, inverse=True), normalize_forex_values(direct),
-		)
-		with RAW_HISTORY_LOCK:
-			RAW_HISTORY_CACHE[cache_key] = {
-				'rows': existing_values, 'loaded_at': datetime.datetime.now(datetime.UTC),
-			}
+		direct_entry = _load_local_history_entry('forex', symbol)
+		opposite_entry = _load_local_history_entry('forex', inverse_forex_symbol(symbol))
+		existing_values = _merged_forex_values(symbol, direct_entry, opposite_entry)
 	elif cached is not None:
 		existing_values = cached.get('rows', [])
 	else:
