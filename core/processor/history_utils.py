@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import math
 import re
 from pathlib import Path
 
@@ -60,6 +61,52 @@ def normalize_interval(interval: str) -> str:
         return '30m'
     normalized = interval.strip().lower()
     return '30m' if normalized in {'30m', '30min', 'm30'} else '30m'
+
+
+def inverse_forex_symbol(symbol: str) -> str:
+    if not isinstance(symbol, str) or not re.fullmatch(r'[A-Z]{3}_[A-Z]{3}', symbol):
+        raise ValueError('Enter a valid currency pair.')
+    base, quote = symbol.split('_')
+    if base == quote:
+        raise ValueError('Choose two different currencies.')
+    return f'{quote}_{base}'
+
+
+def normalize_forex_values(rows, inverse=False, start=None, end=None) -> list[dict]:
+    """Copy valid midpoint candles, optionally expressing the reciprocal quote."""
+    if not isinstance(rows, list):
+        return []
+    normalized = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        # Reject bad explicit prices before the general helper's permissive defaults.
+        try:
+            prices = [float(row[key]) for key in ('open', 'high', 'low', 'close') if key in row]
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if any(not math.isfinite(price) or price <= 0 for price in prices):
+            continue
+        candle = normalize_ohlcv_row(row)
+        if candle is None:
+            continue
+        timestamp = parse_timestamp(candle['datetime'])
+        if (start is not None and timestamp < start) or (end is not None and timestamp > end):
+            continue
+        if any(not math.isfinite(candle[key]) or candle[key] <= 0 for key in ('open', 'high', 'low', 'close')):
+            continue
+        if inverse:
+            candle = {
+                **candle,
+                'open': 1.0 / candle['open'], 'close': 1.0 / candle['close'],
+                'high': 1.0 / candle['low'], 'low': 1.0 / candle['high'],
+            }
+        if any(not math.isfinite(candle[key]) for key in ('open', 'high', 'low', 'close')):
+            continue
+        if not math.isfinite(candle['volume']):
+            candle['volume'] = 0.0
+        normalized[candle['datetime']] = candle
+    return [normalized[key] for key in sorted(normalized)]
 
 
 def parse_timespan_to_days(timespan: str | None) -> float:

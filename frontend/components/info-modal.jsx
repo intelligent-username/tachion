@@ -29,15 +29,14 @@ const ASSET_DOCS = {
     },
     forex: {
         intro:
-            "This are foreign currency exchanges. Write the primary currency's symbol followed by the currency you want to convert it to.",
+            'Choose the currency to convert From and the currency to convert To. Enter one three-letter code in each field.',
         examples: [
-            { symbol: 'EURUSD', label: 'Converts € to $' },
-            { symbol: 'Eur/Usd', label: 'Alternative slash format' },
-            { symbol: 'aud_gpy', label: 'Australian $ to Japanese ¥' },
+            { symbol: 'From EUR / To USD', label: 'Euros in US dollars' },
+            { symbol: 'From AUD / To JPY', label: 'Australian dollars in Japanese yen' },
         ],
         alternatives:
-            'Requirement: 3 letters for the first currency and 3 for the second. Dashes/underscores/slashes may be added, and capitalization is free, since all will be normalized in the backend.',
-        finalPoint: 'Pairs outside provider coverage will return no results.',
+            'Capitalization, whitespace, underscores and slashes are cleaned up when you leave a field or search. Use two different currencies; do not paste a complete pair into one field. Suggestions come from the provider and narrow to matching pairs, but you can enter other codes even if suggestions are unavailable. Swap exchanges the currencies and searches immediately, reusing cached rates through reciprocal prices when possible.',
+        finalPoint: 'Suggestions are not a guarantee of available history. Pairs outside provider coverage may return no results.',
     },
     comm: {
         intro: 'These are physical commodities.',

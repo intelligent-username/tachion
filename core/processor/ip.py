@@ -10,11 +10,16 @@ This Script handles:
 from __future__ import annotations
 
 import datetime
+import os
+import time
+from functools import partial
 from pathlib import Path
 from threading import Lock
 
 import numpy as np
 import pandas as pd
+import requests
+
 from core.apis.biapi import BinanceAPI, call_specific_binance
 from core.apis.oaapi import OandaAPI, call_specific_oanda
 from core.apis.tdapi import TwelveDataAPI, call_specific_td
@@ -24,16 +29,18 @@ from core.processor.history_utils import (
 	effective_history_end as _effective_history_end,
 )
 from core.processor.history_utils import (
-	merge_values as _merge_values,
-)
-from core.processor.history_utils import (
+	inverse_forex_symbol,
 	normalize_asset_symbol,
+	normalize_forex_values,
 	normalize_interval,
 	parse_timespan_to_days,
 	parse_timestamp,
 	read_raw_data,
 	slice_values_by_timespan,
 	write_raw_data,
+)
+from core.processor.history_utils import (
+	merge_values as _merge_values,
 )
 from core.processor.history_utils import (
 	normalize_ohlcv_row as _normalize_ohlcv_row,
@@ -52,6 +59,10 @@ PREPROCESSED_LOCK = Lock()
 # In-memory cache for raw ticker history to avoid repeated file reads.
 RAW_HISTORY_CACHE: dict[str, dict] = {}
 RAW_HISTORY_LOCK = Lock()
+FOREX_PAIR_LOCKS: dict[tuple[str, str], Lock] = {}
+FOREX_PAIR_LOCKS_LOCK = Lock()
+FOREX_BOOTSTRAP_PAGES = 35
+FOREX_PAGE_SIZE = 5000
 
 
 class InferenceProcessorError(Exception):
@@ -104,6 +115,8 @@ def _fetch_incremental_values(
 	start_date: datetime.datetime,
 	end_date: datetime.datetime,
 	interval: str,
+	*,
+	has_usable_history: bool = False,
 ) -> list[dict]:
 	normalized_asset = (asset_class or '').strip().lower()
 	normalized_interval = normalize_interval(interval)
@@ -119,7 +132,13 @@ def _fetch_incremental_values(
 		start_ms = int(start_date.timestamp() * 1000)
 		result = BinanceAPI(symbol=symbol, interval='30m', limit=1000, start_time=start_ms)
 
-	elif normalized_asset in {'forex', 'comm'}:
+	elif normalized_asset == 'forex':
+		return _fetch_forex_values(
+			symbol, start_date, end_date, normalized_interval,
+			has_usable_history=has_usable_history,
+		)
+
+	elif normalized_asset == 'comm':
 		result = OandaAPI(instrument=symbol, granularity='M30', count=5000, from_time=start_date)
 		if result.get('status') == 'error':
 			yahoo_symbol = symbol
@@ -146,6 +165,79 @@ def _fetch_incremental_values(
 	return values
 
 
+def _fetch_oanda_bootstrap_values(instrument: str) -> list[dict]:
+	token = os.getenv('OANDA_KEY', '').strip()
+	if not token:
+		raise ValueError('OANDA is not configured.')
+	to_time = _effective_history_end('forex', datetime.datetime.now())
+	merged = {}
+	window_started = time.monotonic()
+	window_calls = 0
+	with requests.Session() as session:
+		session.headers.update({'Authorization': f'Bearer {token}', 'Accept-Datetime-Format': 'RFC3339'})
+		# OandaAPI accepts a session; bound this new bootstrap's network waits.
+		session.get = partial(session.get, timeout=(3.05, 10))
+		for _ in range(FOREX_BOOTSTRAP_PAGES):
+			if window_calls >= 30:
+				time.sleep(max(0, 1 - (time.monotonic() - window_started)))
+				window_started, window_calls = time.monotonic(), 0
+			window_calls += 1
+			try:
+				result = OandaAPI(
+					instrument=instrument, granularity='M30', count=FOREX_PAGE_SIZE,
+					to_time=to_time, session=session,
+				)
+				if not isinstance(result, dict) or result.get('status') != 'ok':
+					raise ValueError('OANDA history is unavailable.')
+				batch = normalize_forex_values(result.get('values'), end=to_time)
+			except (requests.RequestException, ValueError, TypeError, KeyError, OverflowError):
+				if merged:
+					break
+				raise
+			if not batch:
+				break
+			for row in batch:
+				merged.setdefault(row['datetime'], row)
+			oldest = parse_timestamp(batch[0]['datetime'])
+			next_end = oldest - datetime.timedelta(minutes=1)
+			if next_end >= to_time:
+				break
+			to_time = next_end
+	return [merged[key] for key in sorted(merged)]
+
+
+def _fetch_forex_values(
+	symbol: str, start_date: datetime.datetime, end_date: datetime.datetime,
+	interval: str = '30m', *, has_usable_history: bool = False, bootstrap: bool = False,
+) -> list[dict]:
+	opposite = inverse_forex_symbol(symbol)
+	for provider, instrument, inverse in (
+		('oanda', symbol, False), ('oanda', opposite, True),
+		('yahoo', symbol, False), ('yahoo', opposite, True),
+	):
+		try:
+			if provider == 'oanda':
+				if bootstrap:
+					result = {'status': 'ok', 'values': _fetch_oanda_bootstrap_values(instrument)}
+				else:
+					result = OandaAPI(instrument=instrument, granularity='M30', count=5000, from_time=start_date)
+			else:
+				yahoo_symbol = instrument.replace('_', '') + '=X'
+				result = _fetch_from_yahoo(yahoo_symbol, start_date, end_date, interval)
+			if not isinstance(result, dict) or result.get('status') != 'ok' or not isinstance(result.get('values'), list):
+				continue
+			values = normalize_forex_values(
+				result['values'], inverse=inverse,
+				start=None if bootstrap and provider == 'oanda' else start_date,
+				end=end_date,
+			)
+			if values or has_usable_history:
+				return values
+		except (requests.RequestException, ValueError, TypeError, KeyError, OverflowError):
+			continue
+	raise InferenceProcessorError('No usable prices are available for this currency pair.', status_code=502)
+
+
 def _fetch_range_with_pagination(
 	symbol: str,
 	asset_class: str,
@@ -153,6 +245,8 @@ def _fetch_range_with_pagination(
 	end_date: datetime.datetime,
 	interval: str,
 	max_pages: int = 24,
+	*,
+	has_usable_history: bool = False,
 ) -> list[dict]:
 	"""Fetch [start_date, end_date] with pagination using provider-specific page limits."""
 	if start_date >= end_date:
@@ -166,7 +260,19 @@ def _fetch_range_with_pagination(
 		if cursor >= end_date:
 			break
 
-		batch = _fetch_incremental_values(symbol, asset_class, cursor, end_date, interval)
+		try:
+			if asset_class == 'forex':
+				# Backfill callers pass False: earlier pages cannot cover cursor..end.
+				batch = _fetch_incremental_values(
+					symbol, asset_class, cursor, end_date, interval,
+					has_usable_history=has_usable_history,
+				)
+			else:
+				batch = _fetch_incremental_values(symbol, asset_class, cursor, end_date, interval)
+		except InferenceProcessorError:
+			if asset_class == 'forex' and merged:
+				break
+			raise
 		if not batch:
 			break
 
@@ -214,8 +320,8 @@ def _collect_fresh_symbol_history(raw_path: Path, symbol: str, asset_class: str)
 		# Same collector strategy: Binance deep pagination.
 		call_specific_binance(out_dir, symbols=[symbol], num_calls=87, json_indent=2)
 	elif asset == 'forex':
-		# Same collector strategy: OANDA pagination.
-		call_specific_oanda(out_dir, instruments=[symbol], num_calls=35, json_indent=2)
+		end = _effective_history_end('forex', datetime.datetime.now())
+		return _fetch_forex_values(symbol, end - datetime.timedelta(days=60), end, bootstrap=True)
 	elif asset == 'comm':
 		# Same collector strategy: OANDA pagination.
 		call_specific_oanda(out_dir, instruments=[symbol], num_calls=36, json_indent=2)
@@ -316,7 +422,31 @@ def background_preprocess_ticker(asset_class: str, symbol: str, full_rows: list[
 		}
 
 
+def _load_local_history(asset_class: str, symbol: str) -> list[dict]:
+	key = f'{asset_class}:{symbol}'
+	with RAW_HISTORY_LOCK:
+		cached = RAW_HISTORY_CACHE.get(key)
+		if cached is not None:
+			return list(cached.get('rows', []))
+	return read_raw_data(raw_file_path(asset_class, symbol))
+
+
 def get_historical_data(symbol: str, asset_class: str, timespan: str = 'max', interval: str = '30m') -> list[dict]:
+	if (asset_class or '').strip().lower() != 'forex':
+		return _get_historical_data_unlocked(symbol, asset_class, timespan, interval)
+	symbol = normalize_asset_symbol('forex', symbol)
+	try:
+		inverse_forex_symbol(symbol)
+	except ValueError as error:
+		raise InferenceProcessorError(str(error), status_code=400) from error
+	key = tuple(sorted(symbol.split('_')))
+	with FOREX_PAIR_LOCKS_LOCK:
+		pair_lock = FOREX_PAIR_LOCKS.setdefault(key, Lock())
+	with pair_lock:
+		return _get_historical_data_unlocked(symbol, 'forex', timespan, interval)
+
+
+def _get_historical_data_unlocked(symbol: str, asset_class: str, timespan: str, interval: str) -> list[dict]:
 	"""Update raw file from last stored point to effective market end and return normalized rows."""
 	symbol = normalize_asset_symbol(asset_class, symbol)
 	raw_path = raw_file_path(asset_class, symbol)
@@ -325,7 +455,17 @@ def get_historical_data(symbol: str, asset_class: str, timespan: str = 'max', in
 	with RAW_HISTORY_LOCK:
 		cached = RAW_HISTORY_CACHE.get(cache_key)
 
-	if cached is not None:
+	if asset_class == 'forex':
+		direct = _load_local_history('forex', symbol)
+		opposite = _load_local_history('forex', inverse_forex_symbol(symbol))
+		existing_values = _merge_values(
+			normalize_forex_values(opposite, inverse=True), normalize_forex_values(direct),
+		)
+		with RAW_HISTORY_LOCK:
+			RAW_HISTORY_CACHE[cache_key] = {
+				'rows': existing_values, 'loaded_at': datetime.datetime.now(datetime.UTC),
+			}
+	elif cached is not None:
 		existing_values = cached.get('rows', [])
 	else:
 		existing_values = read_raw_data(raw_path)
@@ -343,6 +483,8 @@ def get_historical_data(symbol: str, asset_class: str, timespan: str = 'max', in
 	first_dt = parse_timestamp(existing_values[0].get('datetime')) if existing_values else None
 
 	is_fresh_symbol = (not file_existed) and (cached is None) and (not existing_values)
+	if asset_class == 'forex':
+		is_fresh_symbol = not existing_values
 
 	needs_forward_refresh = (last_dt is None) or ((now - last_dt) >= datetime.timedelta(minutes=25))
 	needs_backfill = (first_dt is None) or (first_dt > (requested_start + step))
@@ -356,6 +498,10 @@ def get_historical_data(symbol: str, asset_class: str, timespan: str = 'max', in
 	if is_fresh_symbol:
 		try:
 			bootstrapped = _collect_fresh_symbol_history(raw_path, symbol, asset_class)
+		except InferenceProcessorError:
+			if asset_class == 'forex':
+				raise
+			bootstrapped = []
 		except Exception:
 			bootstrapped = []
 
@@ -392,7 +538,13 @@ def get_historical_data(symbol: str, asset_class: str, timespan: str = 'max', in
 
 		if start_date < now:
 			try:
-				incoming_values = _fetch_range_with_pagination(symbol, asset_class, start_date, now, interval)
+				if asset_class == 'forex':
+					incoming_values = _fetch_range_with_pagination(
+						symbol, asset_class, start_date, now, interval,
+						has_usable_history=bool(merged_values),
+					)
+				else:
+					incoming_values = _fetch_range_with_pagination(symbol, asset_class, start_date, now, interval)
 			except InferenceProcessorError:
 				if merged_values:
 					incoming_values = []

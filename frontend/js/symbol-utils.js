@@ -32,3 +32,40 @@ export function sanitizeSymbol(value, assetClass) {
 
     return symbol.toUpperCase()
 }
+
+export function cleanCurrencyCode(value) {
+    return String(value ?? '').replace(/[\s_/]/g, '').replace(/[a-z]/g, letter => letter.toUpperCase())
+}
+
+export function buildForexPair({ from, to }) {
+    const normalized = { from: cleanCurrencyCode(from), to: cleanCurrencyCode(to) }
+    const errors = {}
+    for (const field of ['from', 'to']) {
+        if (!normalized[field]) errors[field] = 'Enter a currency code.'
+        else if (!/^[A-Z]{3}$/.test(normalized[field])) errors[field] = 'Enter one three-letter currency code, e.g. EUR.'
+    }
+    if (!Object.keys(errors).length && normalized.from === normalized.to) {
+        errors.to = 'Choose two different currencies.'
+    }
+    return {
+        ...normalized,
+        symbol: Object.keys(errors).length ? '' : `${normalized.from}_${normalized.to}`,
+        errors,
+    }
+}
+
+export function getForexSuggestions(directory, otherCode, query = '') {
+    if (!directory) return []
+    const other = cleanCurrencyCode(otherCode)
+    const prefix = cleanCurrencyCode(query)
+    let candidates = directory.currencies
+    if (/^[A-Z]{3}$/.test(other)) {
+        const partners = new Set()
+        for (const { base, quote } of directory.pairs) {
+            if (base === other) partners.add(quote)
+            if (quote === other) partners.add(base)
+        }
+        candidates = [...partners]
+    }
+    return candidates.filter(code => code !== other && code.startsWith(prefix)).sort()
+}

@@ -6,12 +6,45 @@ For Forex and Commodity data collection - 10 years and 15 years of historical da
 import datetime
 import json
 import os
+import re
 import time
 
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+def get_oanda_forex_instruments():
+    """Return only currency-pair identities from the configured account."""
+    token = os.getenv('OANDA_KEY', '').strip()
+    account_id = os.getenv('OANDA_ACCOUNT_ID', '').strip()
+    if not token or not account_id:
+        raise ValueError('Currency directory is not configured.')
+
+    response = requests.get(
+        f'https://api-fxpractice.oanda.com/v3/accounts/{account_id}/instruments',
+        headers={'Authorization': f'Bearer {token}'},
+        timeout=(3.05, 10),
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, dict) or not isinstance(payload.get('instruments'), list):
+        raise TypeError('Invalid currency directory response.')
+
+    pairs = {}
+    for instrument in payload['instruments']:
+        if not isinstance(instrument, dict) or instrument.get('type') != 'CURRENCY':
+            continue
+        symbol = instrument.get('name')
+        if not isinstance(symbol, str) or not re.fullmatch(r'[A-Z]{3}_[A-Z]{3}', symbol):
+            continue
+        base, quote = symbol.split('_')
+        if base != quote:
+            pairs[symbol] = {'symbol': symbol, 'base': base, 'quote': quote}
+    if not pairs:
+        raise ValueError('No currency instruments in directory.')
+    return [pairs[symbol] for symbol in sorted(pairs)]
 
 
 def call_specific_oanda(path, instruments, num_calls, rate_limit=30, json_indent=4):

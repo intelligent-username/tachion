@@ -1,6 +1,31 @@
 // API calls
 const API_BASE = '/api'
 
+export async function fetchForexCurrencies({ signal } = {}) {
+    const response = await fetch(`${API_BASE}/forex/currencies`, { signal })
+    if (!response.ok) throw new Error('Currency suggestions are unavailable.')
+    const data = await response.json()
+    const isCode = code => typeof code === 'string' && /^[A-Z]{3}$/.test(code)
+    if (!data || !Array.isArray(data.currencies) || !data.currencies.length ||
+        !data.currencies.every(isCode) || !Array.isArray(data.pairs) || !data.pairs.length ||
+        typeof data.stale !== 'boolean' || !Number.isFinite(data.refreshAfterSeconds) ||
+        data.refreshAfterSeconds <= 0 || data.refreshAfterSeconds > 3600) {
+        throw new Error('Invalid currency directory.')
+    }
+    const codes = new Set(data.currencies)
+    const pairedCodes = new Set()
+    for (const pair of data.pairs) {
+        if (!pair || !isCode(pair.base) || !isCode(pair.quote) || pair.base === pair.quote ||
+            pair.symbol !== `${pair.base}_${pair.quote}` || !codes.has(pair.base) || !codes.has(pair.quote)) {
+            throw new Error('Invalid currency directory.')
+        }
+        pairedCodes.add(pair.base)
+        pairedCodes.add(pair.quote)
+    }
+    if (pairedCodes.size !== codes.size) throw new Error('Invalid currency directory.')
+    return data
+}
+
 // Send search request to backend
 export async function sendSearch(symbol, assetClass, timespan = 'max') {
     const response = await fetch(`${API_BASE}/search`, {

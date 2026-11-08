@@ -144,13 +144,16 @@ def YFinanceAPI(symbol, start_date=None, end_date=None, interval="1d"):
 
         # Convert DataFrame to list of dicts
         values = []
+        intraday = interval.endswith(('m', 'h')) and not interval.endswith('mo')
         for date, row in hist.iterrows():
             # Handle timezone-aware datetime
-            if hasattr(date, 'tz') and date.tz is not None:
+            if intraday and date.tzinfo is not None:
+                date = date.astimezone(datetime.UTC).replace(tzinfo=None)
+            elif hasattr(date, 'tz') and date.tz is not None:
                 date = date.tz_localize(None)
 
             values.append({
-                "datetime": date.strftime("%Y-%m-%d"),
+                "datetime": date.strftime("%Y-%m-%d %H:%M:%S" if intraday else "%Y-%m-%d"),
                 "open": float(row["Open"]) if row["Open"] == row["Open"] else None,
                 "high": float(row["High"]) if row["High"] == row["High"] else None,
                 "low": float(row["Low"]) if row["Low"] == row["Low"] else None,

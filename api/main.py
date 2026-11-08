@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from api.forex import router as forex_router
 from api.predict import router as predict_router
 from api.search import router as search_router
 
@@ -30,6 +31,7 @@ app.add_middleware(
 # Include routers
 app.include_router(predict_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
+app.include_router(forex_router, prefix="/api")
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -39,7 +41,7 @@ async def http_exception_handler(_, exc: StarletteHTTPException):
             status_code=404,
             content={"detail": "Unknown request/path"}
         )
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=exc.headers)
 
 
 @app.get("/")
