@@ -125,9 +125,6 @@
 
 @media (max-width: 680px) {
   .chart-legend {
-    top: 8px;
-    left: 58px;
-    max-width: calc(100% - 72px);
     gap: 0.2rem;
     padding: 0.3rem 0.4rem;
     font-size: 0.68rem;
@@ -154,8 +151,6 @@
   }
 
   .chart-legend {
-    left: 62px;
-    max-width: calc(100% - 74px);
     padding: 0.25rem 0.35rem;
   }
 

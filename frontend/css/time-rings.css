@@ -124,7 +124,7 @@
 .timespan-chip,
 .timespan-custom-input {
 	border: 1px solid var(--border);
-	background: rgba(15, 15, 35, 0.65);
+	background: var(--bg-input);
 	color: var(--text-main);
 	border-radius: 999px;
 	font-size: 0.8rem;
@@ -138,9 +138,38 @@
 }
 
 .timespan-chip.active {
-  border-color: rgba(255,255,255,0.7);
-  background: rgba(255,255,255,0.08);
+  border-color: rgba(112, 191, 255, 0.8);
+  background: rgba(112, 191, 255, 0.18);
   color:#fff;
+}
+
+.timespan-selection {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 1px solid rgba(112, 191, 255, 0.8);
+  border-radius: 999px;
+  background: rgba(112, 191, 255, 0.18);
+  pointer-events: none;
+  transform-origin: top left;
+}
+
+.timespan-selection[hidden] { display: none; }
+
+.timespan-selector[data-selection-ready="true"] .timespan-chip.active {
+  border-color: transparent;
+  background: transparent;
+}
+
+.timespan-chip,
+.timespan-custom-input {
+  position: relative;
+  z-index: 1;
+}
+
+.timespan-chip:focus-visible {
+  outline: 2px solid var(--blue-highlight);
+  outline-offset: 2px;
 }
 
 .timespan-custom-input {

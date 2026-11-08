@@ -3,7 +3,7 @@ import * as d3 from 'd3'
 
 // Both displayed envelopes use information at least three native bars old.
 export const BAND_LAG_BARS = 3
-export const BAND_COLORS = { bollinger: '#4393c3', volatility: '#d6604d' }
+export const BAND_COLORS = { bollinger: '#70bfff', volatility: '#d6604d' }
 
 /** Create passive band paths below the candle layer. */
 export function createBandPaths(group, kind, dash = null) {

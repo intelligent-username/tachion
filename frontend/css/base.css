@@ -1,13 +1,15 @@
 :root {
-  --bg-dark: #0f0f23;
-  --bg-panel: rgba(22, 33, 62, 0.8);
-  --bg-input: rgba(15, 15, 35, 0.8);
+  --bg-dark: #101827;
+  --bg-panel: rgba(27, 43, 72, 0.94);
+  --bg-input: rgba(12, 22, 41, 0.9);
+  --bg-chrome: #1a2b49;
+  --blue-highlight: #70bfff;
   --text-main: #eeeeee;
-  --text-muted: #888888;
+  --text-muted: #aab6c8;
   --accent: #e74c3c;
-  --btn-bg: #304A28;
-  --btn-text: #D9DDDC;
-  --border: rgba(255, 255, 255, 0.1);
+  --btn-bg: #365f43;
+  --btn-text: #f1f7f2;
+  --border: rgba(184, 209, 240, 0.16);
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   --font-main: 'Inter', system-ui, sans-serif;
 }
@@ -35,7 +37,7 @@ body {
   display: flex;
   justify-content: space-between;
   padding: 1rem 2rem;
-  background: rgba(22, 33, 62, 0.9);
+  background: var(--bg-chrome);
   border-bottom: 1px solid var(--border);
   align-items: center;
   gap: 0.75rem;

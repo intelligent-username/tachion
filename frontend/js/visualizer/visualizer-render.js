@@ -6,7 +6,7 @@ import { xyLine, indexLineGapped, indexAreaGapped } from './visualizer-d3'
 const MA_WINDOW = 30
 const EMA_PERIOD = 20
 
-// Line/area mode: smooth close-price line with a gradient area fill underneath.
+// Line mode: smooth close-price line without obscuring the chart beneath it.
 // Fades out the renderer's candlesticks first; union gaps break the path.
 export function drawLineMode(renderer, chart) {
     renderer.groups.candles.selectAll('g.candle')
@@ -19,7 +19,7 @@ export function drawLineMode(renderer, chart) {
     renderer.price.area
         .datum(renderer.aligned)
         .attr('d', indexAreaGapped(chart.xScale, renderer.yScale, chart.height, renderer.native.length))
-        .attr('fill', `url(#${renderer.gradientId})`)
+        .attr('fill', 'none')
         .transition()
         .duration(280)
         .ease(d3.easeCubicOut)

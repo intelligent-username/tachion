@@ -38,7 +38,7 @@ export function createSeriesRenderer(root, { id, index, colors }) {
 
     const area = price.append('path')
         .attr('class', 'series-price-area')
-        .attr('fill', `url(#${gradientId})`)
+        .attr('fill', 'none')
         .attr('opacity', 0)
 
     const line = price.append('path')
@@ -114,7 +114,7 @@ export function createSeriesRenderer(root, { id, index, colors }) {
         candles: {},
         price: { area, line, dot },
         indicators: { maLine, emaLine },
-        prediction: { line, band, upper, lower },
+        prediction: { line: predictionLine, band, upper, lower },
         currentMaPoints: null,
         currentEmaPoints: null,
         currentPredictionPoints: null,

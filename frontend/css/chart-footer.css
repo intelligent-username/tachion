@@ -2,7 +2,7 @@
   display: flex;
   justify-content: space-between;
   padding: 1rem 2rem;
-  background: rgba(22, 33, 62, 0.9);
+  background: var(--bg-chrome);
   border-top: 1px solid var(--border);
   font-size: 0.9rem;
   color: var(--text-muted);

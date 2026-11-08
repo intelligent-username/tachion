@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../js/state'
 import { TChart } from '../js/visualizer'
+import { CHART_MARGIN } from '../js/visualizer/visualizer-layers'
 import ChartLegend from './chart-legend'
 
 function shallowEqualStats(a, b) {
@@ -88,7 +89,7 @@ export default function Graph() {
 
     return (
         <>
-            <div className="chart-container">
+            <div className={`chart-container${hasAnyData ? '' : ' is-empty'}`} style={{ '--chart-plot-left': `${CHART_MARGIN.left}px` }}>
                 <div ref={containerRef} className="chart-svg-host" />
                 <ChartLegend stats={legendStats} />
 

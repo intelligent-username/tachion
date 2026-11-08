@@ -2,9 +2,9 @@
 // Pure module — imports nothing from sibling modules.
 import * as d3 from 'd3'
 
-// Smoother curves only for dense series; Catmull-Rom keeps detail sparse
-export function pickCurve(pointCount) {
-    return pointCount > 80 ? d3.curveMonotoneX : d3.curveCatmullRom.alpha(0.5)
+// Smooth price paths without overshooting the actual data points.
+export function pickCurve() {
+    return d3.curveMonotoneX
 }
 
 // Line/area generators over {x, y} points routed through the given scales

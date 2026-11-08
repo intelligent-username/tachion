@@ -138,7 +138,7 @@ export function drawAxes(chart, { tickValues, labelMap }) {
     }
 
     drawLeftAxis(chart, visible, visible.length >= 2)
-    drawGridLines(chart, visible[0].yScale)
+    drawGridLines(chart, visible[0].yScale, tickValues)
 
     if (visible.length >= 2) {
         drawRightAxis(chart, visible[1])
@@ -159,12 +159,20 @@ function drawLeftAxis(chart, visible, tinted) {
 }
 
 // Gridlines come only from the left scale and are never tinted.
-function drawGridLines(chart, yScale) {
+function drawGridLines(chart, yScale, tickValues) {
     const yGrid = d3.axisLeft(yScale)
         .ticks(AXIS_TICK_COUNT)
         .tickSize(-chart.width)
         .tickFormat('')
     chart.gridLayer.call(yGrid)
+    chart.gridLayer.selectAll('line.vertical-grid')
+        .data(tickValues)
+        .join('line')
+        .attr('class', 'vertical-grid')
+        .attr('x1', value => chart.xScale(value))
+        .attr('x2', value => chart.xScale(value))
+        .attr('y1', 0)
+        .attr('y2', chart.height)
     chart.gridLayer.selectAll('line').attr('stroke', GRID_STROKE)
     chart.gridLayer.selectAll('path').attr('stroke', 'transparent')
 }

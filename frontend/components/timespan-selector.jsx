@@ -1,6 +1,6 @@
 // TimespanSelector — orchestrator for the selector ring.
 // Pure layout math lives in ./timespan-selector/layout.js
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useAppState } from '../js/state'
 import { ALL_OPTIONS, getAvailableSelectorWidth, getVisibleOptions, sameOptionSet, trimOneByPriority } from './timespan-selector/layout'
 
@@ -11,6 +11,58 @@ export default function TimespanSelector() {
     const [availableWidth, setAvailableWidth] = useState(0)
     const selectorRef = useRef(null)
     const rafRef = useRef(null)
+    const indicatorRef = useRef(null)
+    const selectionAnimationRef = useRef(null)
+    const previousTimespanRef = useRef(timespan)
+
+    useLayoutEffect(() => {
+        const node = selectorRef.current
+        const indicator = indicatorRef.current
+        if (!node || !indicator) return
+
+        const positionIndicator = (animate) => {
+            const active = node.querySelector('.timespan-chip.active')
+            const previous = indicator.getBoundingClientRect()
+            const container = node.getBoundingClientRect()
+            const target = active?.getBoundingClientRect()
+            selectionAnimationRef.current?.cancel()
+            selectionAnimationRef.current = null
+            node.dataset.selectionReady = String(Boolean(target))
+            indicator.hidden = !target
+            if (!target) return
+
+            const x = target.left - container.left - node.clientLeft
+            const y = target.top - container.top - node.clientTop
+            const transform = `translate(${x}px, ${y}px)`
+            indicator.style.width = `${target.width}px`
+            indicator.style.height = `${target.height}px`
+            indicator.style.transform = transform
+
+            if (!animate || !previous.width || !target.width || !target.height ||
+                window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || !indicator.animate) return
+
+            // FLIP the highlight only; chip labels and selector geometry never scale.
+            selectionAnimationRef.current = indicator.animate([
+                { transform: `translate(${previous.left - container.left - node.clientLeft}px, ${previous.top - container.top - node.clientTop}px) scale(${previous.width / target.width}, ${previous.height / target.height})` },
+                { transform }
+            ], { duration: 240, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)' })
+        }
+
+        positionIndicator(previousTimespanRef.current !== timespan)
+        previousTimespanRef.current = timespan
+        let width = node.clientWidth
+        let height = node.clientHeight
+        const observer = new ResizeObserver(() => {
+            if (width === node.clientWidth && height === node.clientHeight) return
+            width = node.clientWidth
+            height = node.clientHeight
+            positionIndicator(false)
+        })
+        observer.observe(node)
+        return () => observer.disconnect()
+    }, [timespan, visibleOptions, availableWidth])
+
+    useEffect(() => () => selectionAnimationRef.current?.cancel(), [])
 
     const applyCustomDays = (value) => {
         const days = Number(value)
@@ -94,6 +146,7 @@ export default function TimespanSelector() {
 
     return (
         <div className="timespan-selector" role="group" aria-label="Select chart timespan" ref={selectorRef}>
+            <span className="timespan-selection" ref={indicatorRef} aria-hidden="true" hidden />
 
             {/* Custom numeric input — always leftmost inside the ring */}
             <input
@@ -101,6 +154,7 @@ export default function TimespanSelector() {
                 min="1"
                 className="timespan-custom-input"
                 placeholder="custom"
+                aria-label="Custom days"
                 value={customDays}
                 onChange={(e) => { setCustomDays(e.target.value); applyCustomDays(e.target.value) }}
                 onKeyDown={(e) => e.key === 'Enter' && applyCustomDays(customDays)}
@@ -113,6 +167,7 @@ export default function TimespanSelector() {
                     key={value}
                     type="button"
                     className={`timespan-chip${timespan === value ? ' active' : ''}`}
+                    aria-pressed={timespan === value}
                     onClick={() => setTimespan(value)}
                 >
                     {label}
