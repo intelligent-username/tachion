@@ -10,6 +10,8 @@ import time
 
 import requests
 
+from core.apis.provider_errors import InvalidSymbolError, is_invalid_symbol
+
 # For consistent API calls, I'm still going to use 30 minute intervals
 # But don't want to type it as milliseconds
 INTERVAL_MS = {
@@ -25,7 +27,7 @@ INTERVAL_MS = {
 }
 
 
-def call_specific_binance(path, symbols, num_calls, rate_limit=50, json_indent=4):
+def call_specific_binance(path, symbols, num_calls, rate_limit=50, json_indent=4, raise_on_invalid_symbol=False):
     """
     Make Specific Calls to the Binance API
 
@@ -81,6 +83,8 @@ def call_specific_binance(path, symbols, num_calls, rate_limit=50, json_indent=4
                 data = BinanceAPI(symbol=symbol, end_time=curr_time)
 
                 if data.get("status") == "error":
+                    if raise_on_invalid_symbol and data.get('error_kind') == 'invalid_symbol':
+                        raise InvalidSymbolError(data.get('message', 'Invalid symbol'))
                     print(f"Error retrieving data for {symbol}: {data.get('message', '')}")
                     break
 
@@ -214,9 +218,16 @@ def BinanceAPI(url="https://api.binance.com/api/v3/klines",
         params["endTime"] = end_time
 
     try:
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=params, timeout=(3.05, 10))
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+        if is_invalid_symbol('binance', response.status_code, payload):
+            return {'status': 'error', 'message': payload.get('msg', 'Invalid symbol'),
+                    'error_kind': 'invalid_symbol', 'provider_code': payload['code']}
         response.raise_for_status()
-        raw_data = response.json()
+        raw_data = payload if payload is not None else response.json()
 
         # Check for Binance error response
         if isinstance(raw_data, dict) and "code" in raw_data:

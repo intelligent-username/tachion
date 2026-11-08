@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime
 import os
 import time
+from collections import OrderedDict
 from functools import partial
 from pathlib import Path
 from threading import Lock
@@ -22,6 +23,7 @@ import requests
 
 from core.apis.biapi import BinanceAPI, call_specific_binance
 from core.apis.oaapi import OandaAPI, call_specific_oanda
+from core.apis.provider_errors import InvalidSymbolError
 from core.apis.tdapi import TwelveDataAPI, call_specific_td
 from core.apis.yfapi import YFinanceAPI
 from core.processor.dw import add_crypto_date_features, add_date_features
@@ -68,6 +70,11 @@ FOREX_PAIR_LOCKS: dict[tuple[str, str], Lock] = {}
 FOREX_PAIR_LOCKS_LOCK = Lock()
 FOREX_BOOTSTRAP_PAGES = 35
 FOREX_PAGE_SIZE = 5000
+INVALID_SYMBOL_CACHE_TTL_SECONDS = 60
+INVALID_SYMBOL_CACHE_LIMIT = 1024
+INVALID_SYMBOL_CACHE = OrderedDict()
+INVALID_SYMBOL_LOCK = Lock()
+INVALID_SYMBOL_DETAIL = 'Symbol is not supported by the available data providers.'
 
 
 class InferenceProcessorError(Exception):
@@ -122,6 +129,7 @@ def _fetch_incremental_values(
 	interval: str,
 	*,
 	has_usable_history: bool = False,
+	skip_primary: bool = False,
 ) -> list[dict]:
 	normalized_asset = (asset_class or '').strip().lower()
 	normalized_interval = normalize_interval(interval)
@@ -129,7 +137,7 @@ def _fetch_incremental_values(
 	result = None
 
 	if normalized_asset == 'equities':
-		result = _fetch_from_twelvedata(symbol, start_date, end_date)
+		result = {'status': 'error'} if skip_primary else _fetch_from_twelvedata(symbol, start_date, end_date)
 		if result.get('status') == 'error':
 			result = _fetch_from_yahoo(symbol, start_date, end_date, normalized_interval)
 
@@ -144,7 +152,7 @@ def _fetch_incremental_values(
 		)
 
 	elif normalized_asset == 'comm':
-		result = OandaAPI(instrument=symbol, granularity='M30', count=5000, from_time=start_date)
+		result = {'status': 'error'} if skip_primary else OandaAPI(instrument=symbol, granularity='M30', count=5000, from_time=start_date)
 		if result.get('status') == 'error':
 			yahoo_symbol = symbol
 			if normalized_asset == 'forex' and '_' in symbol:
@@ -162,6 +170,8 @@ def _fetch_incremental_values(
 		raise InferenceProcessorError('No response from data provider', status_code=500)
 
 	if result.get('status') == 'error':
+		if normalized_asset == 'crypto' and result.get('error_kind') == 'invalid_symbol':
+			raise InvalidSymbolError(result.get('message', 'Invalid symbol'))
 		raise InferenceProcessorError(result.get('message', 'Upstream API error'), status_code=502)
 
 	values = result.get('values', [])
@@ -252,6 +262,7 @@ def _fetch_range_with_pagination(
 	max_pages: int = 24,
 	*,
 	has_usable_history: bool = False,
+	skip_primary: bool = False,
 ) -> list[dict]:
 	"""Fetch [start_date, end_date] with pagination using provider-specific page limits."""
 	if start_date >= end_date:
@@ -272,6 +283,8 @@ def _fetch_range_with_pagination(
 					symbol, asset_class, cursor, end_date, interval,
 					has_usable_history=has_usable_history,
 				)
+			elif skip_primary:
+				batch = _fetch_incremental_values(symbol, asset_class, cursor, end_date, interval, skip_primary=True)
 			else:
 				batch = _fetch_incremental_values(symbol, asset_class, cursor, end_date, interval)
 		except InferenceProcessorError:
@@ -320,16 +333,26 @@ def _collect_fresh_symbol_history(raw_path: Path, symbol: str, asset_class: str)
 
 	if asset == 'equities':
 		# Same collector strategy: TwelveData paginated calls.
-		call_specific_td(out_dir, symbols=[symbol], num_calls=3, json_indent=2)
+		try:
+			result = call_specific_td(out_dir, symbols=[symbol], num_calls=3, json_indent=2, return_on_error=True)
+		except (requests.RequestException, ValueError, OSError) as error:
+			return {'status': 'error', 'message': str(error)}
+		if isinstance(result, dict) and result.get('status') == 'error':
+			return result
 	elif asset == 'crypto':
 		# Same collector strategy: Binance deep pagination.
-		call_specific_binance(out_dir, symbols=[symbol], num_calls=87, json_indent=2)
+		call_specific_binance(out_dir, symbols=[symbol], num_calls=87, json_indent=2, raise_on_invalid_symbol=True)
 	elif asset == 'forex':
 		end = _effective_history_end('forex', datetime.datetime.now())
 		return _fetch_forex_values(symbol, end - datetime.timedelta(days=60), end, bootstrap=True)
 	elif asset == 'comm':
 		# Same collector strategy: OANDA pagination.
-		call_specific_oanda(out_dir, instruments=[symbol], num_calls=36, json_indent=2)
+		try:
+			result = call_specific_oanda(out_dir, instruments=[symbol], num_calls=36, json_indent=2, return_on_error=True)
+		except (requests.RequestException, ValueError, OSError) as error:
+			return {'status': 'error', 'message': str(error)}
+		if isinstance(result, dict) and result.get('status') == 'error':
+			return result
 	else:
 		# Interest and unknown assets stay on normal incremental path.
 		return []
@@ -509,6 +532,15 @@ def _get_historical_data_unlocked(symbol: str, asset_class: str, timespan: str, 
 				'loaded_at': datetime.datetime.utcnow(),
 			}
 
+	invalid_key = ((asset_class or '').strip().lower(), symbol)
+	with INVALID_SYMBOL_LOCK:
+		expires = INVALID_SYMBOL_CACHE.get(invalid_key)
+		if expires is not None and (expires <= time.monotonic() or existing_values):
+			INVALID_SYMBOL_CACHE.pop(invalid_key, None)
+			expires = None
+	if expires is not None:
+		raise InferenceProcessorError(INVALID_SYMBOL_DETAIL, status_code=404)
+
 	now = _effective_history_end(asset_class, datetime.datetime.now())
 	requested_days = max(1, parse_timespan_to_days(timespan))
 	requested_start = now - datetime.timedelta(days=requested_days)
@@ -516,7 +548,7 @@ def _get_historical_data_unlocked(symbol: str, asset_class: str, timespan: str, 
 	last_dt = parse_timestamp(existing_values[-1].get('datetime')) if existing_values else None
 	first_dt = parse_timestamp(existing_values[0].get('datetime')) if existing_values else None
 
-	is_fresh_symbol = (not file_existed) and (cached is None) and (not existing_values)
+	is_fresh_symbol = (not file_existed) and (not existing_values)
 	if asset_class == 'forex':
 		is_fresh_symbol = not existing_values
 
@@ -527,11 +559,19 @@ def _get_historical_data_unlocked(symbol: str, asset_class: str, timespan: str, 
 		return existing_values
 
 	merged_values = existing_values
+	skip_primary = False
 
 	# Fresh symbol bootstrap: reuse collector/core-api pagination once.
 	if is_fresh_symbol:
 		try:
 			bootstrapped = _collect_fresh_symbol_history(raw_path, symbol, asset_class)
+		except InvalidSymbolError:
+			with INVALID_SYMBOL_LOCK:
+				INVALID_SYMBOL_CACHE[invalid_key] = time.monotonic() + INVALID_SYMBOL_CACHE_TTL_SECONDS
+				INVALID_SYMBOL_CACHE.move_to_end(invalid_key)
+				while len(INVALID_SYMBOL_CACHE) > INVALID_SYMBOL_CACHE_LIMIT:
+					INVALID_SYMBOL_CACHE.popitem(last=False)
+			raise InferenceProcessorError(INVALID_SYMBOL_DETAIL, status_code=404) from None
 		except InferenceProcessorError:
 			if asset_class == 'forex':
 				raise
@@ -539,12 +579,32 @@ def _get_historical_data_unlocked(symbol: str, asset_class: str, timespan: str, 
 		except Exception:
 			bootstrapped = []
 
+		if isinstance(bootstrapped, dict) and bootstrapped.get('status') == 'error':
+			skip_primary = True
+			bootstrapped = []
 		if bootstrapped:
 			merged_values = _merge_values(merged_values, bootstrapped)
 			first_dt = parse_timestamp(merged_values[0].get('datetime')) if merged_values else first_dt
 			last_dt = parse_timestamp(merged_values[-1].get('datetime')) if merged_values else last_dt
 			needs_backfill = (first_dt is None) or (first_dt > (requested_start + step))
 			needs_forward_refresh = (last_dt is None) or ((now - last_dt) >= datetime.timedelta(minutes=25))
+
+	# A missing history needs only one attempt at the requested range.
+	if not merged_values:
+		try:
+			if skip_primary:
+				merged_values = _fetch_range_with_pagination(symbol, asset_class, requested_start, now, interval, skip_primary=True)
+			else:
+				merged_values = _fetch_range_with_pagination(symbol, asset_class, requested_start, now, interval)
+		except InvalidSymbolError:
+			with INVALID_SYMBOL_LOCK:
+				INVALID_SYMBOL_CACHE[invalid_key] = time.monotonic() + INVALID_SYMBOL_CACHE_TTL_SECONDS
+				INVALID_SYMBOL_CACHE.move_to_end(invalid_key)
+				while len(INVALID_SYMBOL_CACHE) > INVALID_SYMBOL_CACHE_LIMIT:
+					INVALID_SYMBOL_CACHE.popitem(last=False)
+			raise InferenceProcessorError(INVALID_SYMBOL_DETAIL, status_code=404) from None
+		needs_backfill = False
+		needs_forward_refresh = False
 
 	# Backfill for expanded timespan requests when earliest cached point is too recent.
 	if needs_backfill:
@@ -556,7 +616,7 @@ def _get_historical_data_unlocked(symbol: str, asset_class: str, timespan: str, 
 		if requested_start < backfill_end:
 			try:
 				backfill_values = _fetch_range_with_pagination(symbol, asset_class, requested_start, backfill_end, interval)
-			except InferenceProcessorError:
+			except (InferenceProcessorError, InvalidSymbolError):
 				backfill_values = []
 
 			if backfill_values:
@@ -579,7 +639,7 @@ def _get_historical_data_unlocked(symbol: str, asset_class: str, timespan: str, 
 					)
 				else:
 					incoming_values = _fetch_range_with_pagination(symbol, asset_class, start_date, now, interval)
-			except InferenceProcessorError:
+			except (InferenceProcessorError, InvalidSymbolError):
 				if merged_values:
 					incoming_values = []
 				else:

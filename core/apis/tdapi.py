@@ -12,7 +12,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def call_specific_td(path, symbols, num_calls, outputsize=5000, rate_limit=8, json_indent=4):
+def call_specific_td(path, symbols, num_calls, outputsize=5000, rate_limit=8, json_indent=4,
+                     return_on_error=False):
     """
     Make Specific Calls to the TwelveData API
     
@@ -68,6 +69,10 @@ def call_specific_td(path, symbols, num_calls, outputsize=5000, rate_limit=8, js
 
                     if data.get("status") == "error":
                         msg = data.get("message", "")
+                        if return_on_error and not details:
+                            return data
+                        if return_on_error:
+                            break
                         if "run out of API credits" in msg:
                             # RATE LIMIT
                             elapsed = time.time() - minute_start
@@ -228,7 +233,7 @@ def TwelveDataAPI(url="https://api.twelvedata.com/time_series",
         "User-Agent": "tachion-data-collector",
     }
 
-    response = requests.get(url, params=params, headers=headers)
+    response = requests.get(url, params=params, headers=headers, timeout=(3.05, 10))
     response.raise_for_status()
     if format.upper() == "CSV":
         return response.text

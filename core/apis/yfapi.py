@@ -133,7 +133,8 @@ def YFinanceAPI(symbol, start_date=None, end_date=None, interval="1d"):
         hist = ticker.history(
             start=start_date,
             end=end_date,
-            interval=interval
+            interval=interval,
+            timeout=10
         )
 
         if hist is None or hist.empty:

@@ -47,7 +47,8 @@ def get_oanda_forex_instruments():
     return [pairs[symbol] for symbol in sorted(pairs)]
 
 
-def call_specific_oanda(path, instruments, num_calls, rate_limit=30, json_indent=4):
+def call_specific_oanda(path, instruments, num_calls, rate_limit=30, json_indent=4,
+                        return_on_error=False):
     """
     Make Specific Calls to the OANDA API using a persistent session
 
@@ -114,6 +115,8 @@ def call_specific_oanda(path, instruments, num_calls, rate_limit=30, json_indent
                 data = OandaAPI(instrument=instrument, to_time=curr_time, session=session)
 
                 if data.get("status") == "error":
+                    if return_on_error and not details:
+                        return data
                     print(f"Error retrieving data for {instrument}: {data.get('message', '')}")
                     break
 
@@ -253,7 +256,7 @@ def OandaAPI(url_base="https://api-fxpractice.oanda.com/v3/instruments",
     try:
         # Use provided session for persistent connection, or create new request
         if session is not None:
-            response = session.get(url, params=params)
+            response = session.get(url, params=params, timeout=(3.05, 10))
         else:
             # Fallback: create headers and make single request
             if token is None:
@@ -264,7 +267,7 @@ def OandaAPI(url_base="https://api-fxpractice.oanda.com/v3/instruments",
                 "Authorization": f"Bearer {token}",
                 "Accept-Datetime-Format": "RFC3339"
             }
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, timeout=(3.05, 10))
         
         # Handle rate limiting
         if response.status_code == 429:

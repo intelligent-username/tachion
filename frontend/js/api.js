@@ -61,7 +61,14 @@ export async function fetchHistory(symbol, assetClass, timespan = 'max') {
     })
 
     if (!response.ok) {
-        throw new Error(`Failed to fetch history: ${response.statusText}`)
+        let detail
+        try {
+            const body = await response.json()
+            if (typeof body?.detail === 'string') detail = body.detail
+        } catch {
+            // Non-JSON errors still receive a useful fallback message.
+        }
+        throw new Error(detail || `Failed to fetch history: ${response.statusText}`)
     }
 
     const json = await response.json()
