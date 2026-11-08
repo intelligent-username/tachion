@@ -100,7 +100,7 @@ function CurrencyField({ field, label, placeholder, value, pair, error, disabled
     )
 }
 
-export default function ForexPairInput({ value, errors, disabled, directory, status, onChange, onBlur, onSearch, onSwap, onRetry, inputRefs }) {
+export default function ForexPairInput({ value, errors, disabled, swapDisabled = disabled, directory, status, onChange, onBlur, onSearch, onSwap, onRetry, inputRefs }) {
     const [openField, setOpenField] = useState(null)
     const wrapperRef = useRef(null)
     const common = { pair: value, disabled, directory, onChange, onBlur, onSearch, inputRefs }
@@ -121,7 +121,7 @@ export default function ForexPairInput({ value, errors, disabled, directory, sta
                 <CurrencyField {...common} field="from" label="From" placeholder="EUR" value={value.from}
                     error={errors.from} open={openField === 'from'} setOpen={setOpenField} />
                 <button type="button" className="forex-icon-button" aria-label="Swap currencies and search"
-                    title="Swap currencies and search" disabled={disabled}
+                    title="Swap currencies and search" disabled={swapDisabled}
                     onClick={() => { setOpenField(null); onSwap() }}>
                     <span aria-hidden="true">⇄</span>
                 </button>

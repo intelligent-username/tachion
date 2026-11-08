@@ -37,6 +37,39 @@ export function cleanCurrencyCode(value) {
     return String(value ?? '').replace(/[\s_/]/g, '').replace(/[a-z]/g, letter => letter.toUpperCase())
 }
 
+// Return the opposite canonical pair, or null when the input is not a valid pair.
+export function inverseForexPair(symbol) {
+    const match = /^([A-Z]{3})_([A-Z]{3})$/.exec(String(symbol ?? ''))
+    if (!match || match[1] === match[2]) return null
+    return `${match[2]}_${match[1]}`
+}
+
+// Express OHLC candles in the reciprocal quote. Ordering reverses: the old
+// low becomes the new high. Invalid/non-positive candles are dropped.
+export function invertForexRows(rows) {
+    if (!Array.isArray(rows)) return []
+    const inverted = []
+    for (const row of rows) {
+        if (!row || typeof row !== 'object') continue
+        const open = Number(row.open)
+        const high = Number(row.high)
+        const low = Number(row.low)
+        const close = Number(row.close ?? row.value)
+        if (![open, high, low, close].every(price => Number.isFinite(price) && price > 0)) continue
+        const volume = Number(row.volume)
+        inverted.push({
+            ...row,
+            open: 1 / open,
+            high: 1 / low,
+            low: 1 / high,
+            close: 1 / close,
+            value: 1 / close,
+            volume: Number.isFinite(volume) ? volume : 0,
+        })
+    }
+    return inverted
+}
+
 export function buildForexPair({ from, to }) {
     const normalized = { from: cleanCurrencyCode(from), to: cleanCurrencyCode(to) }
     const errors = {}

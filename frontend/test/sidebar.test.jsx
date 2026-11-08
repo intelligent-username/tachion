@@ -32,6 +32,15 @@ function enterPair(from = 'eur', to = 'usD') {
 }
 
 describe('Sidebar FOREX submission', () => {
+    it('places search help at the right end of the asset controls', () => {
+        render(<Sidebar />)
+        const help = screen.getByRole('button', { name: 'Search help' })
+        const row = document.querySelector('.asset-row')
+        expect(help.parentElement).toBe(row)
+        expect(row.lastElementChild).toBe(help)
+        expect(help.type).toBe('button')
+    })
+
     it('restores an initially focused FOREX pair without searching', async () => {
         appState.series = [{ id: 's1', symbol: 'GBP_JPY', assetClass: 'forex' }]
         render(<Sidebar />)
@@ -104,6 +113,16 @@ describe('Sidebar FOREX submission', () => {
         await waitFor(() => expect(appState.setSeriesSymbol).toHaveBeenCalledExactlyOnceWith('s1', 'USD_EUR', 'forex', '7d'))
         expect(screen.getByLabelText('From').value).toBe('USD')
         expect(screen.getByLabelText('To').value).toBe('EUR')
+    })
+
+    it('keeps swap usable while a focused FOREX series is loading', async () => {
+        appState.series = [{ id: 's1', symbol: 'EUR_USD', assetClass: 'forex', status: 'loading' }]
+        appState.isLoading = true
+        render(<Sidebar />)
+        const swap = screen.getByRole('button', { name: 'Swap currencies and search' })
+        expect(swap.disabled).toBe(false)
+        fireEvent.click(swap)
+        await waitFor(() => expect(appState.setSeriesSymbol).toHaveBeenCalledWith('s1', 'USD_EUR', 'forex', '7d'))
     })
 
     it('fills a focused FOREX chart but does not overwrite typing on series updates', async () => {

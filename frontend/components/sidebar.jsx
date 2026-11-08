@@ -36,6 +36,9 @@ export default function Sidebar() {
     const focusedSeries = series.find(s => s.id === focusedSeriesId) ?? series[0] ?? null
     const isSearchEmpty = !searchTerm.trim()
     const hasPopulatedSeries = series.some(s => s.symbol)
+    // A loaded direction can be flipped from cache even while another request
+    // is running, so the swap control stays usable during loads.
+    const canSwapInPlace = focusedSeries?.assetClass === 'forex' && Boolean(focusedSeries.symbol)
 
     // Mirror the focused chip's symbol and asset class when the edit target changes
     useEffect(() => {
@@ -119,12 +122,22 @@ export default function Sidebar() {
     }
 
     const handleSwap = () => {
-        if (isLoading) return
         const result = resolveForexPair()
         if (!result.symbol) return
         const nextDraft = { from: result.to, to: result.from }
+        const swappedSymbol = buildForexPair(nextDraft).symbol
         setForexDraft(nextDraft)
-        return handleSearch(nextDraft)
+        if (!swappedSymbol) return
+
+        const target = focusedSeries ?? series[0] ?? null
+        if (isLoading && !canSwapInPlace) return
+        if (!target) {
+            return submitSymbol(swappedSymbol)
+        }
+
+        // The state layer serves a cached reciprocal locally. Calling it even
+        // while another load runs lets the latest swap invalidate that load.
+        return setSeriesSymbol(target.id, swappedSymbol, 'forex', timespan).then(applySearchResult)
     }
 
     const handleSearchInput = (value) => {
@@ -158,19 +171,12 @@ export default function Sidebar() {
         <div className="sidebar">
             {showInfo && <InfoModal onClose={() => setShowInfo(false)} initialAsset={assetClass} />}
             <div className="search-section">
-                <button
-                    className="info-btn"
-                    onClick={() => setShowInfo(true)}
-                    aria-label="Search help"
-                    title="How to search"
-                >
-                    ?
-                </button>
                 <div className="search-bar-wrapper">
                     {assetClass === 'forex' ? (
                         <ForexPairInput
                             key={focusedSeriesId ?? 'forex'}
                             value={forexDraft} errors={forexErrors} disabled={isLoading}
+                            swapDisabled={isLoading && !canSwapInPlace}
                             directory={forexDirectory.directory} status={forexDirectory.status}
                             onChange={handleForexChange} onBlur={handleForexBlur}
                             onSearch={handleSearch} onSwap={handleSwap} onRetry={forexDirectory.retry}
@@ -214,6 +220,15 @@ export default function Sidebar() {
                         ))}
                     </select>
                     <TooltipSettings />
+                    <button
+                        type="button"
+                        className="info-btn"
+                        onClick={() => setShowInfo(true)}
+                        aria-label="Search help"
+                        title="How to search"
+                    >
+                        ?
+                    </button>
                 </div>
             </div>
 

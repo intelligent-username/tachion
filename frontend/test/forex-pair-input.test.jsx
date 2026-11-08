@@ -100,6 +100,14 @@ describe('currency comboboxes', () => {
         expect(onSearch).not.toHaveBeenCalled()
     })
 
+    it('keeps swap usable independently of the loading controls', () => {
+        const { onSwap } = setup({ disabled: true, swapDisabled: false })
+        const swap = screen.getByRole('button', { name: 'Swap currencies and search' })
+        expect(swap.disabled).toBe(false)
+        fireEvent.click(swap)
+        expect(onSwap).toHaveBeenCalledOnce()
+    })
+
     it('reopens a closed list with arrow selection and closes on outside pointer interaction', () => {
         const { from } = setup()
         fireEvent.focus(from)

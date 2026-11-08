@@ -5,17 +5,15 @@
 }
 
 .info-btn {
-  position: absolute;
-  top: -11px;
-  left: -11px;
-  z-index: 10;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1.5px solid var(--border);
-  background: var(--bg-input);
+  flex: 0 0 auto;
+  align-self: center;
+  width: 2rem;
+  height: 3rem;
+  border-radius: 4px;
+  border: 0;
+  background: transparent;
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: 1.15rem;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
@@ -23,14 +21,20 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
+  touch-action: manipulation;
 }
 
-.info-btn:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  transform: scale(1.12);
+.info-btn:hover:not(:disabled) {
+  color: var(--text-main);
+}
+
+.info-btn:active:not(:disabled) {
+  color: var(--accent);
+}
+
+.info-btn:focus-visible {
+  outline: 2px solid var(--text-main);
+  outline-offset: 2px;
 }
 
 .search-bar-wrapper {
@@ -142,18 +146,20 @@
   padding: 0;
   border: 2px solid var(--border);
   border-radius: 12px;
-  background: var(--bg-input);
+  background: transparent;
 }
 
 .forex-input-shell legend {
-  margin-left: 0.45rem;
-  padding: 0 0.2rem;
+  margin-left: 0.2rem;
+  padding: 0 0.1rem;
+  background: transparent;
   color: var(--text-main);
   font-size: 0.7rem;
   line-height: 1;
 }
 
 .forex-input-shell label {
+  background: transparent;
   cursor: text;
 }
 
@@ -590,4 +596,51 @@
   color: var(--accent);
   font-size: 0.72rem;
   line-height: 1.3;
+}
+
+
+
+/* Asset class select dropdown */
+.asset-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.asset-select option {
+  background: var(--bg-dark);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin: 0.25rem 0;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.asset-select option:hover {
+  background: var(--bg-panel);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateX(4px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+
+.asset-select option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.15);
+}
+
+.asset-select option:last-of-type {
+  border-radius: 0 0 8px 8px;
+}
+
+.asset-select option:first-of-type {
+  border-radius: 8px 8px 0 0;
+  margin-top: 0;
 }

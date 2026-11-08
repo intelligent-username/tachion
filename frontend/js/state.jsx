@@ -5,9 +5,16 @@ import React, { createContext, useContext, useState, useCallback, useRef, useEff
 import { fetchHistory, fetchPrediction, sendSearch } from './api'
 import { normalizeRange, prepareCandles } from './visualizer/visualizer-data'
 import { loadOverlayPrefs, saveOverlayPrefs } from './prefs'
+import { inverseForexPair, invertForexRows } from './symbol-utils'
 
 // UI cap for series slots; actions still iterate the array
 export const MAX_SERIES = 2
+
+// Local history cache: swap directions are served from here, so the first
+// reciprocal is computed once and the reverse direction restores the exact
+// original array reference.
+const HISTORY_CACHE_LIMIT = 32
+const FOREX_FRESH_MS = 25 * 60 * 1000
 
 // Monotonic id source so removed slots never reuse an id
 let seriesSeq = 0
@@ -87,6 +94,7 @@ export function StateProvider({ children }) {
     const prefetchInFlight = useRef(new Map())
     const chartInstanceRef = useRef(null)
     const requestTokens = useRef({})
+    const historyCache = useRef(new Map())
 
     useEffect(() => {
         saveOverlayPrefs(state.drawBollingerBands, state.drawVolatilityBands)
@@ -106,6 +114,28 @@ export function StateProvider({ children }) {
     }
 
     const isCurrentToken = (seriesId, token) => requestTokens.current[seriesId] === token
+
+    // Keep the latest successful history for each symbol/timespan. A swap
+    // reads this cache first, so it never waits on Search or History.
+    const rememberHistory = useCallback((assetClass, symbol, timespan, data, bandHistory) => {
+        if (!assetClass || !symbol) return
+        const key = chartKey(assetClass, symbol, timespan)
+        const cache = historyCache.current
+        const previous = cache.get(key)
+        const hasData = Array.isArray(data)
+        const entry = {
+            data: hasData ? data : previous?.data ?? [],
+            bandHistory: bandHistory !== undefined
+                ? (Array.isArray(bandHistory) ? bandHistory : [])
+                : previous?.bandHistory ?? [],
+            loadedAt: hasData ? Date.now() : previous?.loadedAt ?? Date.now()
+        }
+        cache.delete(key)
+        cache.set(key, entry)
+        while (cache.size > HISTORY_CACHE_LIMIT) {
+            cache.delete(cache.keys().next().value)
+        }
+    }, [])
 
     // Record that a symbol/asset/timespan has been searched (cached)
     const markSearched = (key) => patch(prev => ({
@@ -178,11 +208,23 @@ export function StateProvider({ children }) {
         }
         request.then(history => {
             if (!isCurrentToken(seriesId, token) || !Array.isArray(history) || !history.length) return
+            rememberHistory(assetClass, symbol, timespan, undefined, history)
             setState(prev => ({ ...prev, series: prev.series.map(slot =>
                 slot.id === seriesId && slot.symbol === symbol && slot.assetClass === assetClass
                     ? { ...slot, bandHistory: history } : slot) }))
         }).catch(() => {})
-    }, [getPrefetchTimespan])
+    }, [getPrefetchTimespan, rememberHistory])
+
+    // Refresh a cached direction silently. The applied view is never cleared;
+    // a newer request token discards this result if the user swaps again.
+    const refreshForexHistory = useCallback((seriesId, symbol, timespan, token) => {
+        fetchHistory(symbol, 'forex', timespan).then(data => {
+            if (!isCurrentToken(seriesId, token) || !Array.isArray(data) || !data.length) return
+            rememberHistory('forex', symbol, timespan, data)
+            applySeriesHistory(seriesId, data, chartKey('forex', symbol, timespan))
+            finishHistoryFetch(seriesId, token, symbol, 'forex', timespan, data)
+        }).catch(() => {})
+    }, [finishHistoryFetch, rememberHistory])
 
     // Mark one slot loading, clear its data, and drop its stale prediction
     const beginSeriesLoad = (seriesId, symbol, assetClass, timespan) => patch(prev => {
@@ -285,6 +327,65 @@ export function StateProvider({ children }) {
 
         const resolvedTimespan = timespan || state.timespan
         const key = chartKey(assetClass, symbol, resolvedTimespan)
+
+        // FOREX swap: when only the direction changed and history is already
+        // available, flip it locally. No Search/History round-trip, no loading
+        // state, and the reverse direction is an exact O(1) cache hit.
+        const current = state.series.find(s => s.id === seriesId) ?? null
+        if (assetClass === 'forex' && current?.assetClass === 'forex' &&
+            inverseForexPair(current.symbol) === symbol) {
+            const targetEntry = historyCache.current.get(key)
+            const cachedSource = historyCache.current.get(chartKey('forex', current.symbol, resolvedTimespan))
+            const sourceEntry = cachedSource?.data?.length
+                ? {
+                    data: cachedSource.data,
+                    bandHistory: current.bandHistory ?? cachedSource.bandHistory ?? [],
+                    loadedAt: cachedSource.loadedAt
+                }
+                : (current.status !== 'loading' && Array.isArray(current.data) && current.data.length
+                    ? { data: current.data, bandHistory: current.bandHistory ?? [], loadedAt: Date.now() }
+                    : null)
+
+            let swapped = targetEntry
+            if (!swapped?.data?.length && sourceEntry?.data?.length) {
+                swapped = {
+                    data: invertForexRows(sourceEntry.data),
+                    bandHistory: invertForexRows(sourceEntry.bandHistory ?? []),
+                    loadedAt: sourceEntry.loadedAt ?? Date.now()
+                }
+                rememberHistory('forex', symbol, resolvedTimespan, swapped.data, swapped.bandHistory)
+            }
+
+            if (swapped?.data?.length) {
+                // Invalidate any in-flight load so a late response cannot
+                // overwrite this direction (the latest click always wins).
+                const token = nextRequestToken(seriesId)
+                patch(prev => {
+                    const predictions = { ...prev.predictions }
+                    delete predictions[seriesId]
+                    return {
+                        timespan: resolvedTimespan,
+                        predictions,
+                        series: prev.series.map(s => s.id === seriesId ? {
+                            ...s,
+                            symbol,
+                            assetClass: 'forex',
+                            data: swapped.data,
+                            bandHistory: swapped.bandHistory ?? [],
+                            status: 'ready',
+                            error: null,
+                            message: null
+                        } : s),
+                        searchedHistory: { ...prev.searchedHistory, [key]: true }
+                    }
+                })
+                if (Date.now() - swapped.loadedAt >= FOREX_FRESH_MS) {
+                    refreshForexHistory(seriesId, symbol, resolvedTimespan, token)
+                }
+                return { ok: true, id: seriesId, data: swapped.data, timespan: resolvedTimespan, local: true }
+            }
+        }
+
         const token = nextRequestToken(seriesId)
         beginSeriesLoad(seriesId, symbol, assetClass, resolvedTimespan)
 
@@ -292,6 +393,7 @@ export function StateProvider({ children }) {
             await sendSearch(symbol, assetClass, resolvedTimespan)
             const data = await fetchHistory(symbol, assetClass, resolvedTimespan)
             if (!isCurrentToken(seriesId, token)) return { ok: false, stale: true }
+            rememberHistory(assetClass, symbol, resolvedTimespan, data)
             applySeriesHistory(seriesId, data, key)
             finishHistoryFetch(seriesId, token, symbol, assetClass, resolvedTimespan, data)
             return { ok: true, id: seriesId, data, timespan: resolvedTimespan }
@@ -300,7 +402,7 @@ export function StateProvider({ children }) {
             failSeriesLoad(seriesId, err)
             return { ok: false, error: err?.message ?? 'Failed to load data' }
         }
-    }, [state.timespan, isDuplicateSeries, finishHistoryFetch])
+    }, [state.timespan, state.series, isDuplicateSeries, finishHistoryFetch, rememberHistory, refreshForexHistory])
 
     // Backward-compatible wrapper: focused slot, else primary, creating one when empty
     const setAsset = useCallback(async (symbol, assetClass, timespan = state.timespan) => {
@@ -349,13 +451,14 @@ export function StateProvider({ children }) {
             try {
                 const data = await fetchHistory(slot.symbol, slot.assetClass, timespan)
                 if (!isCurrentToken(slot.id, tokens[slot.id])) return
+                rememberHistory(slot.assetClass, slot.symbol, timespan, data)
                 applySeriesHistory(slot.id, data, chartKey(slot.assetClass, slot.symbol, timespan))
                 finishHistoryFetch(slot.id, tokens[slot.id], slot.symbol, slot.assetClass, timespan, data)
             } catch (err) {
                 if (isCurrentToken(slot.id, tokens[slot.id])) failSeriesLoad(slot.id, err)
             }
         }))
-    }, [state.series, finishHistoryFetch])
+    }, [state.series, finishHistoryFetch, rememberHistory])
 
     // Stable actions: the chart callback and Reset pill both depend on these
     const setSelectedRange = useCallback((range) => {

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { buildForexPair, cleanCurrencyCode, getForexSuggestions, sanitizeSymbol } from '../js/symbol-utils'
+import {
+    buildForexPair, cleanCurrencyCode, getForexSuggestions, inverseForexPair, invertForexRows, sanitizeSymbol,
+} from '../js/symbol-utils'
 
 describe('FOREX codes', () => {
     it.each(['eur', ' e /u_r ', 'E U R', '_EUR/'])('cleans a single code: %s', from => {
@@ -29,6 +31,34 @@ describe('FOREX codes', () => {
         expect(getForexSuggestions(directory, 'USD', ' e/')).toEqual(['EUR'])
         expect(getForexSuggestions(directory, 'ZZZ')).toEqual([])
         expect(getForexSuggestions(null, '')).toEqual([])
+    })
+})
+
+describe('reciprocal FOREX history', () => {
+    it('identifies the opposite canonical pair', () => {
+        expect(inverseForexPair('EUR_USD')).toBe('USD_EUR')
+        expect(inverseForexPair('USD_JPY')).toBe('JPY_USD')
+        expect(inverseForexPair('EUR_EUR')).toBeNull()
+        expect(inverseForexPair('EURUSD')).toBeNull()
+        expect(inverseForexPair(null)).toBeNull()
+    })
+
+    it('inverts OHLC and keeps timestamps and volume', () => {
+        const [row] = invertForexRows([
+            { timestamp: '2026-11-06T10:00:00', open: 2, high: 2.4, low: 1.8, close: 2.2, volume: 10, value: 2.2 },
+        ])
+        expect(row).toMatchObject({ timestamp: '2026-11-06T10:00:00', volume: 10 })
+        expect(row.open).toBeCloseTo(1 / 2)
+        expect(row.high).toBeCloseTo(1 / 1.8)
+        expect(row.low).toBeCloseTo(1 / 2.4)
+        expect(row.close).toBeCloseTo(1 / 2.2)
+        expect(row.value).toBeCloseTo(1 / 2.2)
+    })
+
+    it('drops unusable prices and non-arrays', () => {
+        expect(invertForexRows(null)).toEqual([])
+        expect(invertForexRows([{ open: 0, high: 1, low: 1, close: 1 }])).toEqual([])
+        expect(invertForexRows([{ open: 1, high: 1, low: 1, close: 'nope' }])).toEqual([])
     })
 })
 
