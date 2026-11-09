@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { TChart } from '../js/visualizer'
+import { formatPrice } from '../js/visualizer/visualizer-hover'
 
 let chart
 let container
@@ -51,6 +52,10 @@ it('reports a forward drag, filters the view, and restores on Reset', () => {
     pointer(node, 'pointerdown', 200)
     expect(chart.rangeDrag).toBeTruthy()
     pointer(node, 'pointermove', 400)
+    expect(chart.rangeStartLabel.selectAll('tspan').nodes()[1]?.textContent)
+        .toBe(formatPrice(data[11].close))
+    expect(chart.rangeCurrentLabel.selectAll('tspan').nodes()[1]?.textContent)
+        .toBe(formatPrice(data[21].close))
     pointer(node, 'pointerup', 400)
 
     expect(chart.rangeDrag).toBeNull()
@@ -152,14 +157,22 @@ it('honors MA/EMA toggles while a zoomed range is active', () => {
 })
 
 it('honors band toggles while a zoomed range is active', () => {
-    chart = new TChart(container)
+    const onStats = vi.fn()
+    chart = new TChart(container, { onStats })
     const range = { start: data[10].timestamp.getTime(), end: data[30].timestamp.getTime() }
 
     chart.renderSeries(series(), { range, showBollingerBands: true })
     expect(chart.series[0].bandPoints.bollinger.length).toBeGreaterThan(0)
     expect(chart.series[0].bands.bollinger.upper.attr('d')).toBeTruthy()
+    expect(onStats.mock.lastCall[0][0].classicLabel).toBe('Bollinger Bands')
 
     chart.renderSeries(series(), { range, showBollingerBands: false })
     expect(chart.series[0].bandPoints.bollinger).toHaveLength(0)
     expect(chart.series[0].bands.bollinger.upper.attr('d')).toBeNull()
+    expect(onStats.mock.lastCall[0][0].classicLabel).toBe('')
+
+    chart.renderSeries(series(), { range, showVolatilityBands: true })
+    expect(onStats.mock.lastCall[0][0].volatilityLabel).toBe('Calibrated Volume Bands')
+    chart.renderSeries(series(), { range: null, showVolatilityBands: true })
+    expect(onStats.mock.lastCall[0][0].volatilityLabel).toBe('Calibrated Volume Bands')
 })

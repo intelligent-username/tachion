@@ -550,8 +550,7 @@ function computeSeriesStats(chart) {
 
 // Flat presentation fields preserve Graph's shallow stats comparison contract.
 function overlayStats(renderer, chart) {
-    const rangeActive = !!chart.selectedRange
-    const eligible = !rangeActive && renderer.assetClass !== 'interest'
+    const eligible = renderer.assetClass !== 'interest'
     const showClassic = eligible && chart.showBollingerBands
     const showVolatility = eligible && chart.showVolatilityBands
 

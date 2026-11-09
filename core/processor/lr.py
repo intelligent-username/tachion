@@ -18,5 +18,4 @@ def volume_change(series: pd.Series) -> pd.Series:
     Compute log volume change: log(volume_t / volume_{t-1}).
     First value will be NaN.
     """
-    with np.errstate(divide='ignore', invalid='ignore'):
-        return np.log(series / series.shift(1))
+    return log_return(series)

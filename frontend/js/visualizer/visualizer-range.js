@@ -6,6 +6,7 @@ const MIN_DRAG_PX = 6
 const DAY_MS = 24 * 60 * 60 * 1000
 const SHOW_TIME_SPAN_MS = 14 * DAY_MS
 const READOUT_MARGIN_PX = 48
+const READOUT_LINE_HEIGHT = 14
 
 // Map a plot pixel to the nearest union date index, clamped to the data.
 export function indexAtX(chart, px) {
@@ -121,28 +122,28 @@ export function drawRangeOverlay(chart) {
         .attr('opacity', 1)
 
     const startAnchorStart = startX < chart.width / 2
+    const startLabelX = startAnchorStart ? Math.max(4, startX + 4) : startX - 4
+    const startLines = rangeReadout(chart, startIdx, spanMs)
     chart.rangeStartLabel
-        .attr('x', startAnchorStart ? Math.max(4, startX + 4) : startX - 4)
-        .attr('y', chart.height - 6)
+        .attr('y', chart.height - 6 - (startLines.length - 1) * READOUT_LINE_HEIGHT)
         .attr('text-anchor', startAnchorStart ? 'start' : 'end')
-        .text(formatRangeDate(startDate.getTime(), spanMs))
-        .attr('opacity', 1)
+    drawReadout(chart.rangeStartLabel, startLabelX, startLines)
 
     const readoutX = Math.max(READOUT_MARGIN_PX, Math.min(chart.width - READOUT_MARGIN_PX, currentX))
-    const lines = [
-        { text: formatRangeDate(currentDate.getTime(), spanMs), color: null },
-        ...priceLines(chart, currentIdx)
-    ]
     chart.rangeCurrentLabel
-        .attr('x', readoutX)
-        .attr('y', 14)
+        .attr('y', READOUT_LINE_HEIGHT)
         .attr('text-anchor', 'middle')
+    drawReadout(chart.rangeCurrentLabel, readoutX, rangeReadout(chart, currentIdx, spanMs))
+}
+
+function drawReadout(label, x, lines) {
+    label.attr('x', x)
         .attr('opacity', 1)
         .selectAll('tspan')
         .data(lines)
         .join('tspan')
-        .attr('x', readoutX)
-        .attr('dy', (line, index) => (index === 0 ? 0 : 14))
+        .attr('x', x)
+        .attr('dy', (line, index) => (index === 0 ? 0 : READOUT_LINE_HEIGHT))
         .attr('fill', line => line.color)
         .text(line => line.text)
 }
@@ -155,19 +156,19 @@ export function hideRangeOverlay(chart) {
     chart.rangeCurrentLabel?.attr('opacity', 0)
 }
 
-function priceLines(chart, idx) {
-    return (chart.series ?? [])
+function rangeReadout(chart, idx, spanMs) {
+    const prices = (chart.series ?? [])
         .filter(renderer => renderer.native?.length)
         .map(renderer => {
             const candle = renderer.aligned?.[idx]
             if (!candle || !Number.isFinite(candle.close)) return null
-            const symbol = renderer.symbol ? `${renderer.symbol} ` : ''
             return {
-                text: `${symbol}${formatPrice(candle.close)}`,
+                text: formatPrice(candle.close),
                 color: renderer.colors?.line ?? null
             }
         })
         .filter(Boolean)
+    return [{ text: formatRangeDate(chart.unionDates[idx].getTime(), spanMs), color: null }, ...prices]
 }
 
 function formatRangeDate(ms, spanMs) {

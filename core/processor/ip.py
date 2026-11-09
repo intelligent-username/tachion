@@ -154,11 +154,7 @@ def _fetch_incremental_values(
 	elif normalized_asset == 'comm':
 		result = {'status': 'error'} if skip_primary else OandaAPI(instrument=symbol, granularity='M30', count=5000, from_time=start_date)
 		if result.get('status') == 'error':
-			yahoo_symbol = symbol
-			if normalized_asset == 'forex' and '_' in symbol:
-				base, quote = symbol.split('_', 1)
-				yahoo_symbol = f'{base}{quote}=X'
-			result = _fetch_from_yahoo(yahoo_symbol, start_date, end_date, normalized_interval)
+			result = _fetch_from_yahoo(symbol, start_date, end_date, normalized_interval)
 
 	elif normalized_asset == 'interest':
 		result = _fetch_from_yahoo(symbol, start_date, end_date, normalized_interval)
