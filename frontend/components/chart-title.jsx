@@ -1,5 +1,7 @@
 // Trendlines title with live price + percent-change metrics
 import { useAppState } from '../js/state'
+import { useMemo } from 'react'
+import { filterCandlesByRange, prepareCandles } from '../js/visualizer/visualizer-data'
 
 const CURRENCY_NAMES = {
 	USD: 'USD', EUR: 'EUR', GBP: 'GBP', JPY: 'JPY', CAD: 'CAD',
@@ -17,15 +19,16 @@ function formatForexLabel(symbol, value) {
 }
 
 export default function TrendlinesTitle() {
-	const { historicalData, currentSymbol, assetClass } = useAppState()
+	const { historicalData, currentSymbol, assetClass, timespan, selectedRange } = useAppState()
 
-	const closes = (historicalData || [])
-		.map(d => Number(d?.close ?? d?.value))
-		.filter(Number.isFinite)
+	const closes = useMemo(() => {
+		const candles = prepareCandles(historicalData, timespan)
+		return filterCandlesByRange(candles, selectedRange).map(candle => candle.close)
+	}, [historicalData, timespan, selectedRange])
 
 	const first = closes.length ? closes[0] : null
 	const last = closes.length ? closes[closes.length - 1] : null
-	const pct = first && last ? ((last - first) / first) * 100 : null
+	const pct = first != null && first !== 0 && last != null ? ((last - first) / first) * 100 : null
 
 	let priceText = '—'
 	if (last != null) {
