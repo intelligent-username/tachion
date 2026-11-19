@@ -442,7 +442,8 @@ function drawChart(chart) {
 
     const rangeActive = !!chart.selectedRange
     for (const renderer of chart.series) {
-        const eligible = renderer.native.length && renderer.assetClass !== 'interest'
+        const eligible = renderer.native.length && renderer.assetClass !== 'interest' &&
+            (renderer.hiddenLevel ?? 0) < 1
         renderer.bandPoints = {
             bollinger: eligible && chart.showBollingerBands ? bandPoints(renderer, 'bollinger') : [],
             volatility: eligible && chart.showVolatilityBands ? bandPoints(renderer, 'volatility') : []
@@ -550,7 +551,7 @@ function computeSeriesStats(chart) {
 
 // Flat presentation fields preserve Graph's shallow stats comparison contract.
 function overlayStats(renderer, chart) {
-    const eligible = renderer.assetClass !== 'interest'
+    const eligible = renderer.assetClass !== 'interest' && (renderer.hiddenLevel ?? 0) < 1
     const showClassic = eligible && chart.showBollingerBands
     const showVolatility = eligible && chart.showVolatilityBands
 

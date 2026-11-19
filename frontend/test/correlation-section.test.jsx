@@ -35,7 +35,7 @@ describe('Correlation sidebar results', () => {
     it('shows six concise points and no settings controls or requests', () => {
         const fetchSpy = vi.spyOn(globalThis, 'fetch')
         render(<CorrelationSection />)
-        expect(screen.getByRole('heading', { name: 'Correlation' }).tagName).toBe('H2')
+        expect(screen.getByRole('heading', { name: 'Correlation in this time window' }).tagName).toBe('H2')
         expect(screen.getAllByRole('listitem')).toHaveLength(6)
         expect(screen.getByRole('button', { name: 'AAA and BBB move together 100% of the time.' })).toBeTruthy()
         expect(screen.getByRole('button', { name: 'AAA and BBB’s co-movement score is 1.00.' })).toBeTruthy()
@@ -89,7 +89,7 @@ describe('Correlation sidebar results', () => {
         render(<CorrelationSection />)
         expect(screen.getByRole('status').textContent).toContain(message)
         expect(screen.queryByRole('list')).toBeNull()
-        expect(screen.getByRole('region', { name: 'Correlation' }).getAttribute('aria-busy'))
+        expect(screen.getByRole('region', { name: 'Correlation in this time window' }).getAttribute('aria-busy'))
             .toBe(String(kind === 'loading'))
     })
 
@@ -98,7 +98,7 @@ describe('Correlation sidebar results', () => {
         if (kind === 'one') appState.series = appState.series.slice(0, 1)
         if (kind === 'empty-slot') appState.series[1] = { id: 'empty', symbol: null }
         render(<CorrelationSection />)
-        expect(screen.queryByRole('region', { name: 'Correlation' })).toBeNull()
+        expect(screen.queryByRole('region', { name: 'Correlation in this time window' })).toBeNull()
         expect(screen.queryByText(/Historical observations/)).toBeNull()
     })
 
@@ -106,13 +106,13 @@ describe('Correlation sidebar results', () => {
         const pair = appState.series
         appState.series = pair.slice(0, 1)
         const view = render(<CorrelationSection />)
-        expect(screen.queryByRole('region', { name: 'Correlation' })).toBeNull()
+        expect(screen.queryByRole('region', { name: 'Correlation in this time window' })).toBeNull()
         appState.series = pair
         view.rerender(<CorrelationSection />)
-        expect(screen.getByRole('region', { name: 'Correlation' })).toBeTruthy()
+        expect(screen.getByRole('region', { name: 'Correlation in this time window' })).toBeTruthy()
         appState.series = pair.slice(0, 1)
         view.rerender(<CorrelationSection />)
-        expect(screen.queryByRole('region', { name: 'Correlation' })).toBeNull()
+        expect(screen.queryByRole('region', { name: 'Correlation in this time window' })).toBeNull()
     })
 
     it('recomputes directional sentences when the stock chips reverse', () => {
@@ -149,6 +149,31 @@ describe('Correlation sidebar results', () => {
         view.rerender(<CorrelationSection />)
         expect(screen.queryByRole('tooltip')).toBeNull()
         expect(screen.queryByRole('list')).toBeNull()
+    })
+
+    it('calculates different rates from only the graph-selected window and restores them on reset', () => {
+        const returns = Array.from({ length: 96 }, (_, i) => i % 2 ? -0.02 : 0.01)
+        appState.series = [
+            stock('AAA', returns),
+            stock('BBB', returns.map((value, i) => value * (i < 48 ? 0.5 : -0.5)))
+        ]
+        const view = render(<CorrelationSection />)
+        expect(sentences()[0].textContent).toBe('AAA and BBB move together 50% of the time.')
+        appState.selectedRange = { start: START, end: START + 48 * BAR }
+        view.rerender(<CorrelationSection />)
+        expect(sentences()[0].textContent).toBe('AAA and BBB move together 100% of the time.')
+        appState.selectedRange = { start: START + 48 * BAR, end: START + 96 * BAR }
+        view.rerender(<CorrelationSection />)
+        expect(sentences()[0].textContent).toBe('AAA and BBB move together 0% of the time.')
+        appState.selectedRange = null
+        view.rerender(<CorrelationSection />)
+        expect(sentences()[0].textContent).toBe('AAA and BBB move together 50% of the time.')
+        appState.timespan = '24h'
+        view.rerender(<CorrelationSection />)
+        expect(sentences()[0].textContent).toBe('AAA and BBB move together 0% of the time.')
+        appState.timespan = 'max'
+        view.rerender(<CorrelationSection />)
+        expect(sentences()[0].textContent).toBe('AAA and BBB move together 50% of the time.')
     })
 
     it('does not change results when a selected stock is hidden or focused', () => {

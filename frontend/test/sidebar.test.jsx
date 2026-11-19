@@ -36,15 +36,15 @@ describe('Sidebar FOREX submission', () => {
         appState.series.push({ id: 's2', symbol: 'MSFT', assetClass: 'equities', status: 'ready' })
         render(<Sidebar />)
         const predict = screen.getByRole('button', { name: 'Predict' })
-        const correlation = screen.getByRole('region', { name: 'Correlation' })
+        const correlation = screen.getByRole('region', { name: 'Correlation in this time window' })
         expect(predict.nextElementSibling).toBe(correlation)
         expect(correlation.querySelector('input')).toBeNull()
-        expect(screen.getByRole('heading', { name: 'Correlation' })).toBeTruthy()
+        expect(screen.getByRole('heading', { name: 'Correlation in this time window' })).toBeTruthy()
     })
 
     it('hides Correlation until two stocks are selected', () => {
         render(<Sidebar />)
-        expect(screen.queryByRole('region', { name: 'Correlation' })).toBeNull()
+        expect(screen.queryByRole('region', { name: 'Correlation in this time window' })).toBeNull()
     })
 
     it('places search help at the right end of the asset controls', () => {

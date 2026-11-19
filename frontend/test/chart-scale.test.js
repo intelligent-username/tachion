@@ -1,6 +1,57 @@
 import { expect, it, vi } from 'vitest'
 import { TChart } from '../js/visualizer'
 
+it('clears both band types for a hidden stock and restores them when shown', () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    const container = document.createElement('div')
+    container.getBoundingClientRect = () => ({ width: 1000, height: 520 })
+    document.body.appendChild(container)
+    const onStats = vi.fn()
+    const chart = new TChart(container, { onStats })
+    try {
+        const data = Array.from({ length: 120 }, (_, i) => {
+            const close = 100 + Math.sin(i / 4) * 8
+            return { timestamp: new Date(1700000000000 + i * 1800000), open: close, high: close + 2, low: close - 2, close }
+        })
+        const series = [
+            { id: 'one', symbol: 'FIRST', assetClass: 'equities', data },
+            { id: 'two', symbol: 'SECOND', assetClass: 'equities', data }
+        ]
+        const options = { showBollingerBands: true, showVolatilityBands: true }
+        chart.renderSeries(series, options)
+        for (const renderer of chart.series) {
+            for (const kind of ['bollinger', 'volatility']) {
+                expect(renderer.bands[kind].upper.attr('d')).toBeTruthy()
+            }
+        }
+        for (const hiddenLevel of [1, 2]) {
+            chart.renderSeries([{ ...series[0], hiddenLevel }, series[1]], options)
+            const [hidden, visible] = chart.series
+            for (const kind of ['bollinger', 'volatility']) {
+                expect(hidden.bandPoints[kind]).toEqual([])
+                for (const path of Object.values(hidden.bands[kind])) {
+                    expect(path.attr('d')).toBeNull()
+                    expect(path.datum()).toEqual([])
+                }
+                expect(visible.bands[kind].upper.attr('d')).toBeTruthy()
+            }
+            expect(onStats.mock.lastCall[0][0]).toMatchObject({
+                classicLabel: '', volatilityLabel: '', classicReturn: '', volatilityReturn: ''
+            })
+        }
+        chart.renderSeries(series, options)
+        for (const renderer of chart.series) {
+            for (const kind of ['bollinger', 'volatility']) {
+                expect(renderer.bands[kind].upper.attr('d')).toBeTruthy()
+            }
+        }
+    } finally {
+        chart.destroy()
+        container.remove()
+        vi.unstubAllGlobals()
+    }
+})
+
 it('keeps a padded, rounded scale when either band is toggled', () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
     const container = document.createElement('div')
