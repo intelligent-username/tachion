@@ -250,17 +250,26 @@
 }
 
 .crosshair-overlay { pointer-events: none; }
+.crosshair-price-background {
+  fill: var(--readout-bg);
+  stroke: var(--readout-border);
+  stroke-width: 1;
+}
+.crosshair-intersection-dot {
+  stroke: var(--readout-bg);
+  stroke-width: 1.5;
+}
 .crosshair-line {
   stroke: rgba(255, 255, 255, 0.55);
   stroke-width: 1;
   stroke-dasharray: 3 3;
 }
 .crosshair-label {
-  fill: #f5f7fc;
+  fill: var(--readout-text);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   paint-order: stroke;
-  stroke: #0a0e1c;
+  stroke: var(--readout-bg);
   stroke-width: 4px;
   stroke-linejoin: round;
 }

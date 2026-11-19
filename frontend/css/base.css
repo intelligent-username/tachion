@@ -6,6 +6,10 @@
   --blue-highlight: #70bfff;
   --text-main: #eeeeee;
   --text-muted: #aab6c8;
+  /* Floating readouts follow the theme's contrasting surface/text pair. */
+  --readout-bg: color-mix(in srgb, var(--bg-dark) 92%, var(--text-main));
+  --readout-text: var(--text-main);
+  --readout-border: color-mix(in srgb, var(--text-main) 30%, var(--bg-dark));
   --accent: #e74c3c;
   --btn-bg: #365f43;
   --btn-text: #f1f7f2;

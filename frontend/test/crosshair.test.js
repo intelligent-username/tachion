@@ -66,16 +66,25 @@ it('crosshair mode shows date label when not on a stock', () => {
     expect(chart.crosshairDate.text()).toMatch(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/)
 })
 
-it('crosshair mode shows price label at y position when not on a stock', () => {
+it('crosshair prices follow the vertical stock intersections, not pointer height', () => {
     chart = new TChart(container, { onRangeSelect: vi.fn() })
     chart.renderSeries(series(), { cursorMode: 'crosshair' })
     const node = chart.hoverRect.node()
 
-    pointer(node, 'mousemove', 500, 150)
-
-    expect(chart.crosshairPrices.selectAll('text').size()).toBe(1)
-    const priceText = chart.crosshairPrices.selectAll('text').nodes()[0].textContent
-    expect(priceText).toMatch(/\d+\.\d{2,6}/)
+    const idx = 25
+    const x = chart.xScale(idx)
+    const renderer = chart.series[0]
+    const close = renderer.aligned[idx].close
+    for (const y of [10, chart.height - 10]) {
+        pointer(node, 'mousemove', x, y)
+        const label = chart.crosshairPrices.select('text')
+        expect(label.text()).toBe(`TEST: ${formatPrice(close)}`)
+        expect(+label.attr('x')).toBeCloseTo(x + 9)
+        expect(+label.attr('y')).toBeCloseTo(renderer.yScale(close) - 8)
+        const dot = chart.crosshairPrices.select('circle')
+        expect(+dot.attr('cx')).toBeCloseTo(x)
+        expect(+dot.attr('cy')).toBeCloseTo(renderer.yScale(close))
+    }
 })
 
 it('snaps to a stock within 6px screen distance', () => {

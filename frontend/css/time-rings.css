@@ -43,7 +43,7 @@
 	font-size: 1.35rem;
 	font-weight: 700;
 	white-space: nowrap;
-	color: rgba(238, 238, 238, 0.82);
+	color: color-mix(in srgb, var(--text-main) 82%, transparent);
 }
 
 .chart-title-metrics.up {
@@ -55,7 +55,7 @@
 }
 
 .chart-title-metrics.neutral {
-	color: rgba(238, 238, 238, 0.72);
+	color: color-mix(in srgb, var(--text-main) 72%, transparent);
 }
 
 .chart-header-actions {
@@ -76,7 +76,7 @@
 	flex: 0 0 auto;
 	border: 1px solid rgba(231, 76, 60, 0.55);
 	border-radius: 999px;
-	background: rgba(12, 18, 37, 0.65);
+	background: color-mix(in srgb, var(--bg-dark) 65%, transparent);
 	color: var(--text-main);
 	font-size: 0.75rem;
 	font-weight: 600;
@@ -108,11 +108,11 @@
 	flex: 0 1 auto;
 	min-width: 0;
 	overflow: hidden;
-	border: 1px solid rgba(255, 255, 255, 0.16);
+	border: 1px solid color-mix(in srgb, var(--text-main) 16%, transparent);
 	border-radius: 999px;
 	padding: 0.35rem;
-	background: rgba(12, 18, 37, 0.5);
-	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 6px 16px rgba(0, 0, 0, 0.25);
+	background: color-mix(in srgb, var(--bg-dark) 50%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-main) 5%, transparent), 0 6px 16px rgba(0, 0, 0, 0.25);
 	transition: border-color 0.22s ease, box-shadow 0.22s ease;
 }
 
@@ -138,18 +138,18 @@
 }
 
 .timespan-chip.active {
-  border-color: rgba(112, 191, 255, 0.8);
-  background: rgba(112, 191, 255, 0.18);
-  color:#fff;
+  border-color: color-mix(in srgb, var(--blue-highlight) 80%, transparent);
+  background: color-mix(in srgb, var(--blue-highlight) 18%, transparent);
+  color: var(--text-main);
 }
 
 .timespan-selection {
   position: absolute;
   top: 0;
   left: 0;
-  border: 1px solid rgba(112, 191, 255, 0.8);
+  border: 1px solid color-mix(in srgb, var(--blue-highlight) 80%, transparent);
   border-radius: 999px;
-  background: rgba(112, 191, 255, 0.18);
+  background: color-mix(in srgb, var(--blue-highlight) 18%, transparent);
   pointer-events: none;
   transform-origin: top left;
 }
