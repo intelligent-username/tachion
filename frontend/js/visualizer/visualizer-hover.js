@@ -381,6 +381,10 @@ function handleMouseMove(chart, event) {
     if (!dates.length) return
 
     const [x, y] = d3.pointer(event, chart.hoverRect.node())
+    if (chart.cursorMode === 'crosshair') {
+        handleCrosshairMove(chart, x, y)
+        return
+    }
     const slot = chart.xScale.invert(x)
     if (slot < 0 || slot > dates.length - 1) {
         handleMouseLeave(chart)
@@ -404,8 +408,90 @@ function handleMouseMove(chart, event) {
     positionTooltip(chart, cx, tooltipAnchorY(chart, idx))
 }
 
+// The x axis is an index scale, so interpolate between adjacent dates rather
+// than treating it as a continuous wall-clock scale across market closures.
+function dateAtSlot(dates, slot) {
+    if (dates.length === 1) return dates[0]
+    const i = Math.max(0, Math.min(dates.length - 2, Math.floor(slot)))
+    return new Date(+dates[i] + (slot - i) * (dates[i + 1] - dates[i]))
+}
+
+function closestSnap(chart, x, y) {
+    const matrix = chart.svg.node().getScreenCTM?.()
+    if (!matrix) return null
+    const { a, b, c, d } = matrix
+    const determinant = a * d - b * c
+    if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-12) return null
+    // Maximum local x displacement of a six-pixel screen-space circle.
+    const radiusX = 6 * Math.hypot(c, d) / Math.abs(determinant)
+    const limits = [chart.xScale.invert(x - radiusX), chart.xScale.invert(x + radiusX)]
+    const start = Math.max(0, Math.ceil(Math.min(...limits)))
+    const end = Math.min(chart.unionDates.length - 1, Math.floor(Math.max(...limits)))
+    let best = null
+    let distance = 6
+    for (const renderer of chart.series) {
+        if (!renderer.native?.length || renderer.hiddenLevel >= 1) continue
+        for (let i = start; i <= end; i++) {
+            const close = renderer.aligned?.[i]?.close
+            if (!Number.isFinite(close)) continue
+            const px = chart.xScale(i), py = renderer.yScale(close)
+            const dx = px - x, dy = py - y
+            const dist = Math.hypot(a * dx + c * dy, b * dx + d * dy)
+            if (dist <= distance && (!best || dist < distance)) {
+                best = { x: px, y: py }
+                distance = dist
+            }
+        }
+    }
+    return best
+}
+
+function handleCrosshairMove(chart, x, y) {
+    const dates = chart.unionDates
+    const snapped = closestSnap(chart, x, y)
+    const cx = snapped?.x ?? x, cy = snapped?.y ?? y
+    const slot = chart.xScale.invert(x)
+    const idx = Math.max(0, Math.min(dates.length - 1, Math.round(slot)))
+    const historical = slot >= 0 && slot <= dates.length - 1
+    const target = historical ? findClosestTarget(chart, idx, y) : null
+    const candleHover = historical && chart.chartMode === 'bars' && chart.series.some(renderer => {
+        const candle = renderer.aligned?.[idx]
+        if (!candle || renderer.hiddenLevel >= 1) return false
+        const halfWidth = Math.max(3, Math.abs(chart.xScale(1) - chart.xScale(0)) / 2)
+        return Math.abs(x - chart.xScale(idx)) <= halfWidth &&
+            y >= renderer.yScale(candle.high) - 3 && y <= renderer.yScale(candle.low) + 3
+    })
+    hideHoverReadout(chart)
+    chart.crosshairLayer.attr('opacity', 1)
+    chart.crosshairVertical.attr('x1', cx).attr('x2', cx)
+    chart.crosshairHorizontal.attr('y1', cy).attr('y2', cy)
+    if (target || candleHover) {
+        updateHoveredLine(chart, idx, y)
+        updateHoverDots(chart, idx)
+        chart.tooltip.html(buildTooltipContent(chart, idx, d3.timeFormat('%Y-%m-%d %H:%M')(dates[idx])))
+            .style('opacity', 1)
+        positionTooltip(chart, chart.xScale(idx), tooltipAnchorY(chart, idx))
+        chart.crosshairDate.attr('opacity', 0)
+        chart.crosshairPrices.selectAll('*').remove()
+        return
+    }
+    const date = dateAtSlot(dates, chart.xScale.invert(cx))
+    chart.crosshairDate.attr('opacity', 1).attr('x', cx).attr('y', chart.height + 14)
+        .attr('text-anchor', cx < 90 ? 'start' : cx > chart.width - 90 ? 'end' : 'middle')
+        .text(d3.timeFormat('%Y-%m-%d %H:%M')(date))
+    const axes = visibleRenderers(chart).slice(0, 2)
+    chart.crosshairPrices.selectAll('text').data(axes, renderer => renderer.id).join('text')
+        .attr('class', 'crosshair-label crosshair-price')
+        .attr('x', (_, i) => i ? chart.width - 4 : 4)
+        .attr('y', Math.max(11, Math.min(chart.height - 3, cy - 4)))
+        .attr('text-anchor', (_, i) => i ? 'end' : 'start')
+        .attr('fill', renderer => axes.length > 1 ? renderer.colors?.axis : '#f5f7fc')
+        .text(renderer => `${axes.length > 1 ? `${renderer.symbol || renderer.id}: ` : ''}${formatPrice(renderer.yScale.invert(cy))}`)
+}
+
 export function hideHoverReadout(chart) {
     chart.hoverLine?.attr('opacity', 0)
+    chart.crosshairLayer?.attr('opacity', 0)
     hideHoverDots(chart)
     chart.tooltip?.style('opacity', 0)
 

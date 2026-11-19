@@ -41,6 +41,7 @@ const initialState = {
     drawExponentialMovingAverage: false,
     searchedHistory: {},
     chartMode: 'bars',
+    cursorMode: 'cursor',
     // Rows shown in the chart hover tooltip
     tooltipFields: {
         price: true,
@@ -590,6 +591,7 @@ export function StateProvider({ children }) {
         setSelectedRange,
         clearSelectedRange,
         setChartMode: (chartMode) => patch({ chartMode }),
+        setCursorMode: (cursorMode) => patch({ cursorMode }),
         setDrawMovingAverage: (drawMovingAverage) => patch({ drawMovingAverage }),
         setDrawExponentialMovingAverage: (drawExponentialMovingAverage) => patch({ drawExponentialMovingAverage }),
         setDrawBollingerBands: (drawBollingerBands) => patch({ drawBollingerBands: !!drawBollingerBands }),

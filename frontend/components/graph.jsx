@@ -32,6 +32,7 @@ export default function Graph() {
         drawBollingerBands,
         drawVolatilityBands,
         chartMode,
+        cursorMode,
         isLoading,
         loadingMessage,
         tooltipFields,
@@ -68,6 +69,7 @@ export default function Graph() {
             {
                 timespan,
                 chartMode,
+                cursorMode,
                 showMovingAverage: drawMovingAverage,
                 showExponentialMovingAverage: drawExponentialMovingAverage,
                 showBollingerBands: drawBollingerBands,
@@ -76,7 +78,7 @@ export default function Graph() {
                 tooltipFields
             }
         )
-    }, [series, timespan, selectedRange, chartMode, drawMovingAverage, drawExponentialMovingAverage, drawBollingerBands, drawVolatilityBands, tooltipFields])
+    }, [series, timespan, selectedRange, chartMode, cursorMode, drawMovingAverage, drawExponentialMovingAverage, drawBollingerBands, drawVolatilityBands, tooltipFields])
 
     // Apply predictions after the data render pass
     useEffect(() => {

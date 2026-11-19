@@ -81,6 +81,15 @@ export function initChartSvg(container) {
         .attr('y1', 0)
         .attr('opacity', 0)
 
+    const crosshairLayer = hoverLayer.append('g')
+        .attr('class', 'crosshair-overlay')
+        .attr('pointer-events', 'none')
+        .attr('opacity', 0)
+    const crosshairVertical = crosshairLayer.append('line').attr('class', 'crosshair-line')
+    const crosshairHorizontal = crosshairLayer.append('line').attr('class', 'crosshair-line')
+    const crosshairDate = crosshairLayer.append('text').attr('class', 'crosshair-label crosshair-date')
+    const crosshairPrices = crosshairLayer.append('g').attr('class', 'crosshair-prices')
+
     const hoverRect = hoverLayer.append('rect')
         .attr('class', 'hover-capture')
         .attr('fill', 'transparent')
@@ -98,6 +107,7 @@ export function initChartSvg(container) {
         xAxis, leftYAxis, rightYAxis,
         rangeLayer, rangeRect, rangeStartEdge, rangeEndEdge,
         rangeStartLabel, rangeCurrentLabel,
-        hoverLayer, hoverLine, hoverRect, tooltip
+        hoverLayer, hoverLine, crosshairLayer, crosshairVertical, crosshairHorizontal,
+        crosshairDate, crosshairPrices, hoverRect, tooltip
     }
 }

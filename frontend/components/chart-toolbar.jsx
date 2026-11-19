@@ -29,6 +29,19 @@ const MODE_BUTTONS = [
 	{ value: 'line', title: 'Stock Price Line Chart', Icon: LineIcon },
 ]
 
+function CursorIcon() {
+	return <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M3 1v12l3.1-3 2.4 5 1.8-.9-2.4-4.8H12z" /></svg>
+}
+
+function CrosshairIcon() {
+	return <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="8" cy="8" r="4" /><path d="M8 0v5M8 11v5M0 8h5M11 8h5" /></svg>
+}
+
+const CURSOR_BUTTONS = [
+	{ value: 'cursor', title: 'Regular cursor', Icon: CursorIcon },
+	{ value: 'crosshair', title: 'Crosshair cursor', Icon: CrosshairIcon }
+]
+
 const CHECKBOXES = [
 	{ stateKey: 'drawMovingAverage', setterKey: 'setDrawMovingAverage', label: 'MA', css: 'ma-checkbox', ariaLabel: 'Simple Moving Average' },
 	{ stateKey: 'drawExponentialMovingAverage', setterKey: 'setDrawExponentialMovingAverage', label: 'EMA', css: 'ema-checkbox', ariaLabel: 'Exponential Moving Average' },
@@ -65,6 +78,16 @@ export default function ChartToolbar() {
 						title={title}
 						aria-label={title}
 					>
+						<Icon />
+					</button>
+				))}
+			</div>
+			<div className={`chart-mode-toggle mode-${state.cursorMode}`} role="group" aria-label="Chart cursor mode">
+				<span className="chart-mode-indicator" aria-hidden="true" />
+				{CURSOR_BUTTONS.map(({ value, title, Icon }) => (
+					<button key={value} type="button" className={`chart-mode-btn${state.cursorMode === value ? ' active' : ''}`}
+						onClick={() => state.setCursorMode(value)} aria-label={title} title={title}
+						aria-pressed={state.cursorMode === value}>
 						<Icon />
 					</button>
 				))}
