@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../components/sidebar'
 
@@ -32,6 +32,21 @@ function enterPair(from = 'eur', to = 'usD') {
 }
 
 describe('Sidebar FOREX submission', () => {
+    it('places Correlation directly beneath Predict without adding settings', () => {
+        appState.series.push({ id: 's2', symbol: 'MSFT', assetClass: 'equities', status: 'ready' })
+        render(<Sidebar />)
+        const predict = screen.getByRole('button', { name: 'Predict' })
+        const correlation = screen.getByRole('region', { name: 'Correlation' })
+        expect(predict.nextElementSibling).toBe(correlation)
+        expect(correlation.querySelector('input')).toBeNull()
+        expect(screen.getByRole('heading', { name: 'Correlation' })).toBeTruthy()
+    })
+
+    it('hides Correlation until two stocks are selected', () => {
+        render(<Sidebar />)
+        expect(screen.queryByRole('region', { name: 'Correlation' })).toBeNull()
+    })
+
     it('places search help at the right end of the asset controls', () => {
         render(<Sidebar />)
         const help = screen.getByRole('button', { name: 'Search help' })
@@ -56,7 +71,7 @@ describe('Sidebar FOREX submission', () => {
         expect(screen.getByPlaceholderText('EUR').value).toBe('')
         expect(screen.getByPlaceholderText('USD').value).toBe('')
         enterPair()
-        await waitFor(() => expect(screen.getByRole('status').textContent).toBe(''))
+        await waitFor(() => expect(within(document.querySelector('.forex-pair-control')).getByRole('status').textContent).toBe(''))
         switchAsset('crypto')
         expect(screen.queryByLabelText('From')).toBeNull()
         switchAsset('forex')

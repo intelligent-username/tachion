@@ -8,6 +8,7 @@ import ForexPairInput from './forex-pair-input'
 import InfoModal from './info-modal'
 import SeriesChips from './series-chips'
 import TooltipSettings from './tooltip-settings'
+import CorrelationSection from './correlation-section'
 
 export default function Sidebar() {
     const [searchTerm, setSearchTerm] = useState('')
@@ -254,6 +255,7 @@ export default function Sidebar() {
             >
                 <span className="button-text">Predict</span>
             </button>
+            <CorrelationSection />
         </div>
     )
 }
