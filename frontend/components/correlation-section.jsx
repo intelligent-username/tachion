@@ -200,8 +200,8 @@ export default function CorrelationSection() {
     if (!a?.symbol || !b?.symbol || result.status === 'unsupported') return null
 
     const messages = {
-        loading: 'Waiting for both stocks’ history…',
-        error: 'Stock history is unavailable. Search again to retry.',
+        loading: 'Waiting for both instruments’ history…',
+        error: 'Instrument history is unavailable. Search again to retry.',
         'invalid-options': 'Correlation settings are invalid.',
         insufficient: `Not enough meaningful moves in this range; widen it to include at least ${result.options.minSamples} observations.`
     }
