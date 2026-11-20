@@ -4,7 +4,7 @@
 import * as d3 from 'd3'
 import { prepareCandles, filterCandlesByRange, normalizeRange } from './visualizer/visualizer-data'
 import { CHART_MARGIN, SERIES_AXIS_MARGIN_RIGHT, initChartSvg } from './visualizer/visualizer-layers'
-import { buildXTicks, drawAxes } from './visualizer/visualizer-axes'
+import { buildXTicks, drawAxes, disconnectAxisTheme } from './visualizer/visualizer-axes'
 import { drawLineMode, drawCandlestickMode, drawMovingAverages, clearMainGraph } from './visualizer/visualizer-render'
 import { applyLineOpacities, bindHover, hideHoverReadout } from './visualizer/visualizer-hover'
 import { animatePrediction as drawPredictionOverlay, predictionPoints, resetPredictionOverlays } from './visualizer/visualizer-prediction'
@@ -224,6 +224,7 @@ export class TChart {
 
     destroy() {
         this.resizeObserver?.disconnect()
+        disconnectAxisTheme(this)
         for (const renderer of this.series) removeSeriesRenderer(this, renderer)
         this.tooltip?.remove()
         d3.select(this.container).selectAll('*').remove()

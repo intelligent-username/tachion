@@ -37,9 +37,9 @@
   position: absolute;
   z-index: 4;
   pointer-events: none;
-  background: rgba(7, 11, 24, 0.9);
-  color: #f2f4f8;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--readout-bg);
+  color: var(--readout-text);
+  border: 1px solid var(--readout-border);
   border-radius: 8px;
   padding: 0.45rem 0.55rem;
   font-size: 0.75rem;
@@ -106,7 +106,7 @@
 .chart-tooltip-band-status {
   max-width: min(280px, 70vw);
   margin-top: 0.25rem;
-  color: #c2c7d0;
+  color: var(--readout-text);
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -181,10 +181,10 @@
   width: max-content;
   max-width: min(300px, 65vw);
   padding: 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--readout-border);
   border-radius: 8px;
-  background: #070b18;
-  color: #f2f4f8;
+  background: var(--readout-bg);
+  color: var(--readout-text);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   pointer-events: none;
 }
@@ -373,10 +373,10 @@
   display: none;
   width: min(300px, 80vw);
   padding: 0.55rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--readout-border);
   border-radius: 8px;
-  background: rgba(7, 11, 24, 0.95);
-  color: #f2f4f8;
+  background: var(--readout-bg);
+  color: var(--readout-text);
   font-size: 0.75rem;
   font-weight: 400;
   line-height: 1.35;

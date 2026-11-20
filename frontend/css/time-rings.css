@@ -47,11 +47,11 @@
 }
 
 .chart-title-metrics.up {
-	color: #27ae60;
+	color: var(--metric-up);
 }
 
 .chart-title-metrics.down {
-	color: #e74c3c;
+	color: var(--metric-down);
 }
 
 .chart-title-metrics.neutral {

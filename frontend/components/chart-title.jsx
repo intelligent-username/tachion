@@ -1,6 +1,6 @@
-// Trendlines title with live price + percent-change metrics
+// Trendlines title with visible-series price and range metrics
+import { useId, useMemo } from 'react'
 import { useAppState } from '../js/state'
-import { useMemo } from 'react'
 import { filterCandlesByRange, prepareCandles } from '../js/visualizer/visualizer-data'
 
 const CURRENCY_NAMES = {
@@ -18,38 +18,53 @@ function formatForexLabel(symbol, value) {
 	return `1 ${CURRENCY_NAMES[base] || base} equals ${formatted} ${CURRENCY_NAMES[quote] || quote}`
 }
 
-export default function TrendlinesTitle() {
-	const { historicalData, currentSymbol, assetClass, timespan, selectedRange } = useAppState()
-
-	const closes = useMemo(() => {
-		const candles = prepareCandles(historicalData, timespan)
-		return filterCandlesByRange(candles, selectedRange).map(candle => candle.close)
-	}, [historicalData, timespan, selectedRange])
-
-	const first = closes.length ? closes[0] : null
-	const last = closes.length ? closes[closes.length - 1] : null
+function getMetrics(slot, timespan, selectedRange) {
+	const candles = filterCandlesByRange(prepareCandles(slot.data, timespan), selectedRange)
+	const first = candles[0]?.close ?? null
+	const last = candles[candles.length - 1]?.close ?? null
 	const pct = first != null && first !== 0 && last != null ? ((last - first) / first) * 100 : null
+	const price = last == null ? '—' : slot.assetClass === 'forex'
+		? formatForexLabel(slot.symbol, last)
+		: `$${last.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`
+	return {
+		text: `${price} • ${pct == null ? '—' : `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`}`,
+		className: pct == null ? 'neutral' : pct >= 0 ? 'up' : 'down'
+	}
+}
 
-	let priceText = '—'
-	if (last != null) {
-		if (assetClass === 'forex' && currentSymbol) {
-			priceText = formatForexLabel(currentSymbol, last)
-		} else {
-			priceText = `$${last.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`
-		}
+function ComparisonSymbol({ slot, metrics }) {
+	const id = useId()
+	return (
+		<span className="chart-title-comparison-item">
+			<span className="chart-title-symbol chart-title-trigger" tabIndex={0} aria-describedby={id}>{slot.symbol}</span>
+			<span id={id} role="tooltip" className={`chart-title-tooltip ${metrics.className}`}>{metrics.text}</span>
+		</span>
+	)
+}
+
+export default function TrendlinesTitle() {
+	const { series, timespan, selectedRange } = useAppState()
+	const visible = useMemo(() => (series ?? [])
+		.filter(slot => slot.symbol && (slot.hiddenLevel ?? 0) === 0)
+		.map(slot => ({ slot, metrics: getMetrics(slot, timespan, selectedRange) })),
+	[series, timespan, selectedRange])
+
+	if (visible.length > 1) {
+		return (
+			<div className="chart-title-wrap chart-title-comparison">
+				<ComparisonSymbol {...visible[0]} />
+				<span>vs.</span>
+				<ComparisonSymbol {...visible[1]} />
+				<span>Price Movements</span>
+			</div>
+		)
 	}
 
-	const pctText = pct != null
-		? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`
-		: '—'
-
-	const pctClass = pct == null ? 'neutral' : pct >= 0 ? 'up' : 'down'
-
+	const item = visible[0]
 	return (
 		<div className="chart-title-wrap">
-			{!currentSymbol && <h1>Trendlines</h1>}
-			{currentSymbol && <span className="chart-title-symbol">{currentSymbol}</span>}
-			<span className={`chart-title-metrics ${pctClass}`}>{priceText} • {pctText}</span>
+			{item ? <span className="chart-title-symbol">{item.slot.symbol}</span> : <h1>Trendlines</h1>}
+			<span className={`chart-title-metrics ${item?.metrics.className ?? 'neutral'}`}>{item?.metrics.text ?? '— • —'}</span>
 		</div>
 	)
 }

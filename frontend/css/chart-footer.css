@@ -51,3 +51,47 @@ button:disabled:hover {
   box-shadow: none;
   filter: none;
 }
+
+.chart-title-comparison {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.chart-title-comparison-item {
+  position: relative;
+}
+
+.chart-title-trigger {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+}
+
+.chart-title-trigger:focus-visible {
+  outline: 2px solid var(--text-main);
+  outline-offset: 3px;
+}
+
+.chart-title-tooltip {
+  position: absolute;
+  z-index: 10;
+  top: 100%;
+  left: 0;
+  margin-top: 0.3rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--readout-border);
+  border-radius: 4px;
+  background: var(--readout-bg);
+  color: var(--readout-text);
+  font-size: 0.9rem;
+  white-space: nowrap;
+  visibility: hidden;
+}
+
+.chart-title-tooltip.up { color: var(--metric-up); }
+.chart-title-tooltip.down { color: var(--metric-down); }
+
+.chart-title-comparison-item:hover .chart-title-tooltip,
+.chart-title-comparison-item:focus-within .chart-title-tooltip {
+  visibility: visible;
+}

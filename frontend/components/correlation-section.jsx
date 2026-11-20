@@ -209,18 +209,10 @@ export default function CorrelationSection() {
 
     return (
         <section className="correlation-section" aria-labelledby={headingId} aria-busy={result.status === 'loading'}>
-            <h2 id={headingId} className="correlation-heading">Correlation in this time window</h2>
+            <h2 id={headingId} className="correlation-heading">Correlation</h2>
             {result.status === 'ready'
                 ? <CorrelationResults result={result} />
                 : <p className="correlation-status" role="status">{messages[result.status]}</p>}
-            <p className="correlation-caveat">
-                Historical observations, not forecasts; windows may overlap.
-            </p>
-            {result.status === 'ready' && (
-                <p className="correlation-caveat">
-                    Continuous bars only; source prices may contain unadjusted splits.
-                </p>
-            )}
         </section>
     )
 }

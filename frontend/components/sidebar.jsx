@@ -27,6 +27,7 @@ export default function Sidebar() {
         isLoading,
         setAsset,
         setSeriesSymbol,
+        switchAssetClass,
         addSeriesSlot,
         focusSeries,
         removeSeries,
@@ -70,7 +71,11 @@ export default function Sidebar() {
     }
 
     const handleAssetChange = (value) => {
+        if (value === assetClass) return
+        switchAssetClass(value)
         setAssetClass(value)
+        setSearchTerm('')
+        setForexDraft({ from: '', to: '' })
         setForexErrors({})
         setForexTouched({})
         setDuplicateMessage('')

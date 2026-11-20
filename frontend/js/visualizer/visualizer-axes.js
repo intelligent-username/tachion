@@ -1,5 +1,6 @@
 // X/Y axis and grid rendering: tick positioning, unique date labels, styling
 import * as d3 from 'd3'
+import { compositeColor, contrastingAxisColor } from './visualizer-colors'
 
 const fmtDay = d3.timeFormat('%b %d')
 const fmtDayYear = d3.timeFormat('%b %d %Y')
@@ -120,6 +121,7 @@ export function applyAxisStrokeAndTextStyling(axisSelection, textFill = NEUTRAL_
 // Draw the x axis and the left/right y axes. The left axis owns the gridlines;
 // the right axis only appears when a second series has data.
 export function drawAxes(chart, { tickValues, labelMap }) {
+    observeAxisTheme(chart)
     drawStyledXAxis(
         chart,
         chart.xScale,
@@ -137,11 +139,12 @@ export function drawAxes(chart, { tickValues, labelMap }) {
         return
     }
 
-    drawLeftAxis(chart, visible, visible.length >= 2)
+    const background = chartBackground(chart.container)
+    drawLeftAxis(chart, visible, visible.length >= 2, background)
     drawGridLines(chart, visible[0].yScale, tickValues)
 
     if (visible.length >= 2) {
-        drawRightAxis(chart, visible[1])
+        drawRightAxis(chart, visible[1], background)
     } else {
         chart.rightYAxis.selectAll('*').remove()
         chart.rightYAxis.style('display', 'none')
@@ -150,11 +153,11 @@ export function drawAxes(chart, { tickValues, labelMap }) {
 
 // Left axis labels stay neutral with one series; with two they take series 1's
 // identity color.
-function drawLeftAxis(chart, visible, tinted) {
+function drawLeftAxis(chart, visible, tinted, background) {
     chart.leftYAxis.call(d3.axisLeft(visible[0].yScale).ticks(AXIS_TICK_COUNT))
     applyAxisStrokeAndTextStyling(
         chart.leftYAxis,
-        tinted ? visible[0].colors?.axis : NEUTRAL_TEXT_FILL
+        tinted ? axisTextColor(visible[0].colors?.axis, background) : NEUTRAL_TEXT_FILL
     )
 }
 
@@ -178,12 +181,57 @@ function drawGridLines(chart, yScale, tickValues) {
 }
 
 // Right axis for the second visible series, offset to the plot's right edge.
-function drawRightAxis(chart, series) {
+function drawRightAxis(chart, series, background) {
     chart.rightYAxis
         .attr('transform', `translate(${chart.width},0)`)
         .style('display', 'block')
     chart.rightYAxis.call(d3.axisRight(series.yScale).ticks(AXIS_TICK_COUNT))
-    applyAxisStrokeAndTextStyling(chart.rightYAxis, series.colors?.axis)
+    applyAxisStrokeAndTextStyling(chart.rightYAxis, axisTextColor(series.colors?.axis, background))
+}
+
+function axisTextColor(value, background) {
+    const color = d3.color(value)?.rgb()
+    if (!color) return NEUTRAL_TEXT_FILL
+    const result = contrastingAxisColor(color, background)
+    return `rgb(${result.r}, ${result.g}, ${result.b})`
+}
+
+// The SVG host is transparent; include all translucent ancestor backgrounds.
+function chartBackground(element) {
+    const layers = []
+    for (let node = element; node; node = node.parentElement) {
+        const color = d3.color(getComputedStyle(node).backgroundColor)?.rgb()
+        if (color && color.opacity > 0) layers.push(color)
+    }
+    return layers.reverse().reduce((background, layer) => compositeColor(layer, background),
+        { r: 255, g: 255, b: 255, opacity: 1 })
+}
+
+function refreshAxisColors(chart) {
+    const visible = (chart.series ?? []).filter(series => series.native?.length)
+    if (visible.length < 2) return
+    const background = chartBackground(chart.container)
+    chart.leftYAxis.selectAll('text').attr('fill', axisTextColor(visible[0].colors?.axis, background))
+    chart.rightYAxis.selectAll('text').attr('fill', axisTextColor(visible[1].colors?.axis, background))
+}
+
+function observeAxisTheme(chart) {
+    if (chart.axisThemeObserver) return
+    const observer = new MutationObserver(() => refreshAxisColors(chart))
+    for (let node = chart.container; node; node = node.parentElement) {
+        observer.observe(node, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] })
+    }
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)')
+    const onChange = () => refreshAxisColors(chart)
+    media?.addEventListener?.('change', onChange)
+    chart.axisThemeObserver = { observer, media, onChange }
+}
+
+export function disconnectAxisTheme(chart) {
+    const theme = chart.axisThemeObserver
+    theme?.observer.disconnect()
+    theme?.media?.removeEventListener?.('change', theme.onChange)
+    chart.axisThemeObserver = null
 }
 
 // Composed x axis draw: bottom axis, edge label anchoring, shared styling.

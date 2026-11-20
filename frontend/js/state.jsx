@@ -96,6 +96,8 @@ export function StateProvider({ children }) {
     const chartInstanceRef = useRef(null)
     const requestTokens = useRef({})
     const historyCache = useRef(new Map())
+    const assetClassViews = useRef(new Map())
+    const activeAssetClass = useRef('equities')
 
     useEffect(() => {
         saveOverlayPrefs(state.drawBollingerBands, state.drawVolatilityBands)
@@ -106,6 +108,32 @@ export function StateProvider({ children }) {
         ...prev,
         ...(typeof update === 'function' ? update(prev) : update)
     }))
+
+    // Keep each asset class's last chart in memory without persisting it.
+    const switchAssetClass = useCallback((assetClass) => {
+        if (!assetClass || assetClass === activeAssetClass.current) return
+        const previousClass = activeAssetClass.current
+        activeAssetClass.current = assetClass
+        setState(prev => {
+            for (const slot of prev.series) {
+                requestTokens.current[slot.id] = (requestTokens.current[slot.id] ?? 0) + 1
+            }
+            assetClassViews.current.set(previousClass, {
+                series: prev.series,
+                focusedSeriesId: prev.focusedSeriesId,
+                selectedRange: prev.selectedRange,
+                predictions: prev.predictions
+            })
+            const saved = assetClassViews.current.get(assetClass)
+            return {
+                ...prev,
+                series: saved?.series ?? [],
+                focusedSeriesId: saved?.focusedSeriesId ?? null,
+                selectedRange: saved?.selectedRange ?? null,
+                predictions: saved?.predictions ?? {}
+            }
+        })
+    }, [])
 
     // Bump and return a slot's request token
     const nextRequestToken = (seriesId) => {
@@ -591,6 +619,7 @@ export function StateProvider({ children }) {
         setSelectedRange,
         clearSelectedRange,
         setChartMode: (chartMode) => patch({ chartMode }),
+        switchAssetClass,
         setCursorMode: (cursorMode) => patch({ cursorMode }),
         setDrawMovingAverage: (drawMovingAverage) => patch({ drawMovingAverage }),
         setDrawExponentialMovingAverage: (drawExponentialMovingAverage) => patch({ drawExponentialMovingAverage }),

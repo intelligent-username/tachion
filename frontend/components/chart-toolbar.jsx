@@ -34,7 +34,12 @@ function CursorIcon() {
 }
 
 function CrosshairIcon() {
-	return <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="8" cy="8" r="4" /><path d="M8 0v5M8 11v5M0 8h5M11 8h5" /></svg>
+	return (
+		<svg viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true">
+			<path d="M8 1v5M8 10v5M1 8h5M10 8h5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+			<circle cx="8" cy="8" r="1.6" fill="currentColor" />
+		</svg>
+	)
 }
 
 const CURSOR_BUTTONS = [
