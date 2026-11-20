@@ -178,6 +178,11 @@ export default function Sidebar() {
             {showInfo && <InfoModal onClose={() => setShowInfo(false)} initialAsset={assetClass} />}
             <div className="search-section">
                 <div className="search-bar-wrapper">
+                    {isLoading && (
+                        <span className="search-progress" role="status" aria-label="Loading">
+                            <span aria-hidden="true" /><span aria-hidden="true" /><span aria-hidden="true" />
+                        </span>
+                    )}
                     {assetClass === 'forex' ? (
                         <ForexPairInput
                             key={focusedSeriesId ?? 'forex'}

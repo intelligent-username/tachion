@@ -42,6 +42,38 @@
   width: 85%;
 }
 
+.search-progress {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 0.55rem);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.search-progress span {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--blue-highlight);
+  animation: search-progress-pulse 1.2s ease-in-out infinite;
+}
+
+.search-progress span:nth-child(2) { animation-delay: 0.15s; }
+.search-progress span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes search-progress-pulse {
+  0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+  30% { opacity: 1; transform: scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-progress span { animation: none; }
+}
+
 .search-section input,
 .search-section select {
   width: 100%;

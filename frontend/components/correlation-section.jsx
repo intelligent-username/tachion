@@ -197,10 +197,9 @@ export default function CorrelationSection() {
         b?.id, b?.symbol, b?.assetClass, b?.data, b?.status,
         timespan, selectedRange?.start, selectedRange?.end
     ])
-    if (!a?.symbol || !b?.symbol) return null
+    if (!a?.symbol || !b?.symbol || result.status === 'unsupported') return null
 
     const messages = {
-        unsupported: 'Correlation currently supports two equities; select stocks in both slots.',
         loading: 'Waiting for both stocks’ history…',
         error: 'Stock history is unavailable. Search again to retry.',
         'invalid-options': 'Correlation settings are invalid.',
