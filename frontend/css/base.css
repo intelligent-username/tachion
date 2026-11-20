@@ -6,9 +6,15 @@
   --blue-highlight: #70bfff;
   --text-main: #eeeeee;
   --text-muted: #aab6c8;
+  /* Floating readouts follow the theme's contrasting surface/text pair. */
+  --readout-bg: color-mix(in srgb, var(--bg-dark) 92%, var(--text-main));
+  --readout-text: var(--text-main);
+  --readout-border: color-mix(in srgb, var(--text-main) 30%, var(--bg-dark));
   --accent: #e74c3c;
   --btn-bg: #365f43;
   --btn-text: #f1f7f2;
+  --metric-up: color-mix(in srgb, var(--btn-bg) 45%, var(--text-main));
+  --metric-down: color-mix(in srgb, var(--accent) 70%, var(--text-main));
   --border: rgba(184, 209, 240, 0.16);
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   --font-main: 'Inter', system-ui, sans-serif;
@@ -18,6 +24,11 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+html {
+  overflow-y: scroll;
+  scrollbar-width: none;
 }
 
 body {
@@ -81,7 +92,7 @@ body {
 }
 
 .header .date {
-  color: #ffffff;
+  color: var(--text-main);
   opacity: 0.95;
   white-space: nowrap;
   font-size: 0.95rem;
@@ -109,15 +120,6 @@ body {
   gap: 1.5rem;
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
+html::-webkit-scrollbar {
+  display: none;
 }

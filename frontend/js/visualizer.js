@@ -4,9 +4,9 @@
 import * as d3 from 'd3'
 import { prepareCandles, filterCandlesByRange, normalizeRange } from './visualizer/visualizer-data'
 import { CHART_MARGIN, SERIES_AXIS_MARGIN_RIGHT, initChartSvg } from './visualizer/visualizer-layers'
-import { buildXTicks, drawAxes } from './visualizer/visualizer-axes'
+import { buildXTicks, drawAxes, disconnectAxisTheme } from './visualizer/visualizer-axes'
 import { drawLineMode, drawCandlestickMode, drawMovingAverages, clearMainGraph } from './visualizer/visualizer-render'
-import { applyLineOpacities, bindHover } from './visualizer/visualizer-hover'
+import { applyLineOpacities, bindHover, hideHoverReadout } from './visualizer/visualizer-hover'
 import { animatePrediction as drawPredictionOverlay, predictionPoints, resetPredictionOverlays } from './visualizer/visualizer-prediction'
 import { createSeriesRenderer, removeSeriesRenderer } from './visualizer/visualizer-series'
 import { resolveSeriesColors } from './visualizer/visualizer-colors'
@@ -17,6 +17,7 @@ import { bindRangeSelect } from './visualizer/visualizer-range'
 const DEFAULT_OPTIONS = {
     timespan: 'max',
     chartMode: 'bars',
+    cursorMode: 'cursor',
     showMovingAverage: false,
     showExponentialMovingAverage: false,
     showBollingerBands: false,
@@ -76,6 +77,7 @@ export class TChart {
         this.showBollingerBands = DEFAULT_OPTIONS.showBollingerBands
         this.showVolatilityBands = DEFAULT_OPTIONS.showVolatilityBands
         this.chartMode = DEFAULT_OPTIONS.chartMode
+        this.cursorMode = DEFAULT_OPTIONS.cursorMode
         this.baseOpacities = { ...BASE_OPACITIES }
         this.hoveredLine = null
 
@@ -131,6 +133,8 @@ export class TChart {
             .attr('width', this.width)
             .attr('height', this.height)
         this.hoverLine.attr('y2', this.height)
+        this.crosshairVertical.attr('y1', 0).attr('y2', this.height)
+        this.crosshairHorizontal.attr('x1', 0).attr('x2', this.width)
 
         this.lastWidth = rect.width
         this.lastHeight = rect.height
@@ -143,6 +147,7 @@ export class TChart {
         this.lastOptions = resolved
         this.lastTimespan = resolved.timespan
         this.chartMode = resolved.chartMode
+        this.cursorMode = resolved.cursorMode
         this.showMovingAverage = resolved.showMovingAverage
         this.showExponentialMovingAverage = resolved.showExponentialMovingAverage
         this.showBollingerBands = resolved.showBollingerBands
@@ -219,6 +224,7 @@ export class TChart {
 
     destroy() {
         this.resizeObserver?.disconnect()
+        disconnectAxisTheme(this)
         for (const renderer of this.series) removeSeriesRenderer(this, renderer)
         this.tooltip?.remove()
         d3.select(this.container).selectAll('*').remove()
@@ -240,6 +246,7 @@ function resolveRenderOptions(chart, options) {
     return {
         timespan: options.timespan ?? chart.lastOptions.timespan,
         chartMode: options.chartMode ?? chart.lastOptions.chartMode,
+        cursorMode: options.cursorMode ?? chart.lastOptions.cursorMode,
         showMovingAverage: !!(options.showMovingAverage ?? chart.lastOptions.showMovingAverage),
         showExponentialMovingAverage: !!(options.showExponentialMovingAverage ?? chart.lastOptions.showExponentialMovingAverage),
         showBollingerBands: !!(options.showBollingerBands ?? chart.lastOptions.showBollingerBands),
@@ -430,6 +437,7 @@ function resolveMaxExtendedX(chart) {
 
 // Every public update enters here; no redraw path calls another public update.
 function drawChart(chart) {
+    hideHoverReadout(chart)
     // Use fullNative so a forecast survives a zoom whose range excludes that
     // series; it is hidden while zoomed and must return on Reset.
     const populated = new Set(chart.series

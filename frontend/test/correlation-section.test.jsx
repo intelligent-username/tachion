@@ -35,7 +35,7 @@ describe('Correlation sidebar results', () => {
     it('shows six concise points and no settings controls or requests', () => {
         const fetchSpy = vi.spyOn(globalThis, 'fetch')
         render(<CorrelationSection />)
-        expect(screen.getByRole('heading', { name: 'Correlation in this time window' }).tagName).toBe('H2')
+        expect(screen.getByRole('heading', { name: 'Correlation' }).tagName).toBe('H2')
         expect(screen.getAllByRole('listitem')).toHaveLength(6)
         expect(screen.getByRole('button', { name: 'AAA and BBB move together 100% of the time.' })).toBeTruthy()
         expect(screen.getByRole('button', { name: 'AAA and BBB’s co-movement score is 1.00.' })).toBeTruthy()
@@ -45,7 +45,8 @@ describe('Correlation sidebar results', () => {
         expect(screen.getByRole('button', { name: /BBB’s typical later move/ })).toBeTruthy()
         expect(screen.queryByRole('spinbutton')).toBeNull()
         expect(screen.queryByRole('tooltip')).toBeNull()
-        expect(screen.getByText('Historical observations, not forecasts; windows may overlap.')).toBeTruthy()
+        expect(screen.queryByText('Historical observations, not forecasts; windows may overlap.')).toBeNull()
+        expect(screen.queryByText('Continuous bars only; source prices may contain unadjusted splits.')).toBeNull()
         expect(fetchSpy).not.toHaveBeenCalled()
         fetchSpy.mockRestore()
     })
@@ -74,14 +75,12 @@ describe('Correlation sidebar results', () => {
     })
 
     it.each([
-        ['loading', 'Waiting for both stocks'],
+        ['loading', 'Waiting for both instruments'],
         ['error', 'Search again to retry'],
-        ['unsupported', 'supports two equities'],
         ['short', 'Not enough meaningful moves'],
         ['disjoint', 'Not enough meaningful moves']
     ])('handles %s without fabricated results', (kind, message) => {
         if (kind === 'loading' || kind === 'error') appState.series[1].status = kind
-        if (kind === 'unsupported') appState.series[1].assetClass = 'forex'
         if (kind === 'short') appState.selectedRange = { start: START, end: START + BAR * 3 }
         if (kind === 'disjoint') appState.series[1].data = appState.series[1].data.map(row => ({
             ...row, timestamp: row.timestamp + BAR * 200
@@ -89,7 +88,7 @@ describe('Correlation sidebar results', () => {
         render(<CorrelationSection />)
         expect(screen.getByRole('status').textContent).toContain(message)
         expect(screen.queryByRole('list')).toBeNull()
-        expect(screen.getByRole('region', { name: 'Correlation in this time window' }).getAttribute('aria-busy'))
+        expect(screen.getByRole('region', { name: 'Correlation' }).getAttribute('aria-busy'))
             .toBe(String(kind === 'loading'))
     })
 
@@ -98,7 +97,7 @@ describe('Correlation sidebar results', () => {
         if (kind === 'one') appState.series = appState.series.slice(0, 1)
         if (kind === 'empty-slot') appState.series[1] = { id: 'empty', symbol: null }
         render(<CorrelationSection />)
-        expect(screen.queryByRole('region', { name: 'Correlation in this time window' })).toBeNull()
+        expect(screen.queryByRole('region', { name: 'Correlation' })).toBeNull()
         expect(screen.queryByText(/Historical observations/)).toBeNull()
     })
 
@@ -106,13 +105,13 @@ describe('Correlation sidebar results', () => {
         const pair = appState.series
         appState.series = pair.slice(0, 1)
         const view = render(<CorrelationSection />)
-        expect(screen.queryByRole('region', { name: 'Correlation in this time window' })).toBeNull()
+        expect(screen.queryByRole('region', { name: 'Correlation' })).toBeNull()
         appState.series = pair
         view.rerender(<CorrelationSection />)
-        expect(screen.getByRole('region', { name: 'Correlation in this time window' })).toBeTruthy()
+        expect(screen.getByRole('region', { name: 'Correlation' })).toBeTruthy()
         appState.series = pair.slice(0, 1)
         view.rerender(<CorrelationSection />)
-        expect(screen.queryByRole('region', { name: 'Correlation in this time window' })).toBeNull()
+        expect(screen.queryByRole('region', { name: 'Correlation' })).toBeNull()
     })
 
     it('recomputes directional sentences when the stock chips reverse', () => {

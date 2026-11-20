@@ -27,6 +27,7 @@ export default function Sidebar() {
         isLoading,
         setAsset,
         setSeriesSymbol,
+        switchAssetClass,
         addSeriesSlot,
         focusSeries,
         removeSeries,
@@ -70,7 +71,11 @@ export default function Sidebar() {
     }
 
     const handleAssetChange = (value) => {
+        if (value === assetClass) return
+        switchAssetClass(value)
         setAssetClass(value)
+        setSearchTerm('')
+        setForexDraft({ from: '', to: '' })
         setForexErrors({})
         setForexTouched({})
         setDuplicateMessage('')
@@ -173,6 +178,11 @@ export default function Sidebar() {
             {showInfo && <InfoModal onClose={() => setShowInfo(false)} initialAsset={assetClass} />}
             <div className="search-section">
                 <div className="search-bar-wrapper">
+                    {isLoading && (
+                        <span className="search-progress" role="status" aria-label="Loading">
+                            <span aria-hidden="true" /><span aria-hidden="true" /><span aria-hidden="true" />
+                        </span>
+                    )}
                     {assetClass === 'forex' ? (
                         <ForexPairInput
                             key={focusedSeriesId ?? 'forex'}

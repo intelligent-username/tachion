@@ -381,6 +381,10 @@ function handleMouseMove(chart, event) {
     if (!dates.length) return
 
     const [x, y] = d3.pointer(event, chart.hoverRect.node())
+    if (chart.cursorMode === 'crosshair') {
+        handleCrosshairMove(chart, x, y)
+        return
+    }
     const slot = chart.xScale.invert(x)
     if (slot < 0 || slot > dates.length - 1) {
         handleMouseLeave(chart)
@@ -404,8 +408,159 @@ function handleMouseMove(chart, event) {
     positionTooltip(chart, cx, tooltipAnchorY(chart, idx))
 }
 
+// The x axis is an index scale, so interpolate between adjacent dates rather
+// than treating it as a continuous wall-clock scale across market closures.
+function dateAtSlot(dates, slot) {
+    if (dates.length === 1) return dates[0]
+    const i = Math.max(0, Math.min(dates.length - 2, Math.floor(slot)))
+    return new Date(+dates[i] + (slot - i) * (dates[i + 1] - dates[i]))
+}
+
+function closestSnap(chart, x, y) {
+    const matrix = chart.svg.node().getScreenCTM?.()
+    if (!matrix) return null
+    const { a, b, c, d } = matrix
+    const determinant = a * d - b * c
+    if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-12) return null
+    // Maximum local x displacement of a six-pixel screen-space circle.
+    const radiusX = 6 * Math.hypot(c, d) / Math.abs(determinant)
+    const limits = [chart.xScale.invert(x - radiusX), chart.xScale.invert(x + radiusX)]
+    const start = Math.max(0, Math.ceil(Math.min(...limits)))
+    const end = Math.min(chart.unionDates.length - 1, Math.floor(Math.max(...limits)))
+    let best = null
+    let distance = 6
+    for (const renderer of chart.series) {
+        if (!renderer.native?.length || renderer.hiddenLevel >= 1) continue
+        for (let i = start; i <= end; i++) {
+            const close = renderer.aligned?.[i]?.close
+            if (!Number.isFinite(close)) continue
+            const px = chart.xScale(i), py = renderer.yScale(close)
+            const dx = px - x, dy = py - y
+            const dist = Math.hypot(a * dx + c * dy, b * dx + d * dy)
+            if (dist <= distance && (!best || dist < distance)) {
+                best = { x: px, y: py }
+                distance = dist
+            }
+        }
+    }
+    return best
+}
+
+// Read the stock at the vertical crosshair, never at the pointer's y.
+function intersectionPrice(chart, renderer, slot) {
+    if (slot < 0 || slot > chart.unionDates.length - 1) return null
+    if (chart.chartMode !== 'line') {
+        const close = renderer.aligned?.[Math.round(slot)]?.close
+        return Number.isFinite(close) ? close : null
+    }
+    const left = renderer.aligned?.[Math.floor(slot)]?.close
+    const right = renderer.aligned?.[Math.ceil(slot)]?.close
+    // Missing candles break the rendered line; don't bridge those gaps.
+    if (!Number.isFinite(left) || !Number.isFinite(right)) return null
+    if (Number.isInteger(slot)) return left
+
+    const path = renderer.price?.line?.node()
+    if (path?.getTotalLength && path?.getPointAtLength) {
+        // Match the actual monotone curve, rather than a straight approximation.
+        const x = chart.xScale(slot)
+        let start = 0, end = path.getTotalLength()
+        for (let i = 0; i < 20; i++) {
+            const middle = (start + end) / 2
+            if (path.getPointAtLength(middle).x < x) start = middle
+            else end = middle
+        }
+        return renderer.yScale.invert(path.getPointAtLength((start + end) / 2).y)
+    }
+    return left + (right - left) * (slot - Math.floor(slot))
+}
+
+function handleCrosshairMove(chart, x, y) {
+    const dates = chart.unionDates
+    const snapped = closestSnap(chart, x, y)
+    const cx = snapped?.x ?? x, cy = snapped?.y ?? y
+    const slot = chart.xScale.invert(x)
+    const idx = Math.max(0, Math.min(dates.length - 1, Math.round(slot)))
+    const historical = slot >= 0 && slot <= dates.length - 1
+    const target = historical ? findClosestTarget(chart, idx, y) : null
+    const candleHover = historical && chart.chartMode === 'bars' && chart.series.some(renderer => {
+        const candle = renderer.aligned?.[idx]
+        if (!candle || renderer.hiddenLevel >= 1) return false
+        const halfWidth = Math.max(3, Math.abs(chart.xScale(1) - chart.xScale(0)) / 2)
+        return Math.abs(x - chart.xScale(idx)) <= halfWidth &&
+            y >= renderer.yScale(candle.high) - 3 && y <= renderer.yScale(candle.low) + 3
+    })
+    hideHoverReadout(chart)
+    chart.crosshairLayer.attr('opacity', 1)
+    chart.crosshairVertical.attr('x1', cx).attr('x2', cx)
+    chart.crosshairHorizontal.attr('y1', cy).attr('y2', cy)
+    if (target || candleHover) {
+        updateHoveredLine(chart, idx, y)
+        updateHoverDots(chart, idx)
+        chart.tooltip.html(buildTooltipContent(chart, idx, d3.timeFormat('%Y-%m-%d %H:%M')(dates[idx])))
+            .style('opacity', 1)
+        positionTooltip(chart, chart.xScale(idx), tooltipAnchorY(chart, idx))
+        chart.crosshairDate.attr('opacity', 0)
+        chart.crosshairPrices.selectAll('*').remove()
+        return
+    }
+    const date = dateAtSlot(dates, chart.xScale.invert(cx))
+    chart.crosshairDate.attr('opacity', 1).attr('x', cx).attr('y', chart.height + 14)
+        .attr('text-anchor', cx < 90 ? 'start' : cx > chart.width - 90 ? 'end' : 'middle')
+        .text(d3.timeFormat('%Y-%m-%d %H:%M')(date))
+    const intersections = visibleRenderers(chart)
+        .filter(renderer => (renderer.hiddenLevel ?? 0) < 1)
+        .map(renderer => ({
+            renderer,
+            price: intersectionPrice(chart, renderer, chart.xScale.invert(cx))
+        }))
+        .filter(point => point.price !== null)
+    // Keep markers on the curves; only move the readouts when they collide.
+    const ordered = [...intersections].sort((a, b) => a.renderer.yScale(a.price) - b.renderer.yScale(b.price))
+    const labelGap = 19
+    for (let i = 0; i < ordered.length; i++) {
+        const desired = Math.max(12, Math.min(chart.height - 5, ordered[i].renderer.yScale(ordered[i].price) - 8))
+        ordered[i].labelY = i ? Math.max(desired, ordered[i - 1].labelY + labelGap) : desired
+    }
+    for (let i = ordered.length - 1; i >= 0; i--) {
+        const limit = i === ordered.length - 1 ? chart.height - 5 : ordered[i + 1].labelY - labelGap
+        ordered[i].labelY = Math.min(ordered[i].labelY, limit)
+    }
+    const backgrounds = chart.crosshairPrices.selectAll('rect').data(intersections, point => point.renderer.id).join('rect')
+        .attr('class', 'crosshair-price-background')
+        .attr('rx', 4)
+    backgrounds.lower()
+    chart.crosshairPrices.selectAll('circle').data(intersections, point => point.renderer.id).join('circle')
+        .attr('class', 'crosshair-intersection-dot')
+        .attr('cx', cx)
+        .attr('cy', ({ renderer, price }) => renderer.yScale(price))
+        .attr('r', 3.5)
+        .attr('fill', ({ renderer }) => renderer.colors?.line ?? 'var(--readout-text)')
+    chart.crosshairPrices.selectAll('text').data(intersections, point => point.renderer.id).join('text')
+        .attr('class', 'crosshair-label crosshair-price')
+        .attr('x', cx + 9)
+        .attr('y', point => point.labelY)
+        .attr('text-anchor', 'start')
+        .text(({ renderer, price }) => `${renderer.symbol || renderer.id}: ${formatPrice(price)}`)
+        .each(function (point) {
+            // Keep the readout beside its point, flipping left near the edge.
+            const labelWidth = this.getComputedTextLength?.() || this.textContent.length * 6
+            if (cx + 9 + labelWidth > chart.width) {
+                d3.select(this).attr('x', cx - 9).attr('text-anchor', 'end')
+            }
+            const label = d3.select(this)
+            const x = +label.attr('x')
+            const y = +label.attr('y')
+            backgrounds.filter(background => background.renderer.id === point.renderer.id)
+                .attr('x', x - (label.attr('text-anchor') === 'end' ? labelWidth : 0) - 5)
+                .attr('y', y - 12)
+                .attr('width', labelWidth + 10)
+                .attr('height', 17)
+        })
+}
+
 export function hideHoverReadout(chart) {
     chart.hoverLine?.attr('opacity', 0)
+    chart.crosshairLayer?.attr('opacity', 0)
     hideHoverDots(chart)
     chart.tooltip?.style('opacity', 0)
 

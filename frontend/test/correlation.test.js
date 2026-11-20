@@ -219,13 +219,21 @@ describe('paired history integrity', () => {
 })
 
 describe('analysis statuses and defaults', () => {
+    it.each(['equities', 'forex', 'comm', 'crypto'])('supports %s pairs', assetClass => {
+        const series = [stock('AAA', [0.01, 0.02]), stock('BBB', [0.01, 0.02])]
+            .map(instrument => ({ ...instrument, assetClass }))
+        const result = analyzePair({ series, options: { minSamples: 1 } })
+        expect(result.status).toBe('ready')
+        expect(result.metrics.together.n).toBeGreaterThan(0)
+    })
+
     it('requires two populated ordered stock slots', () => {
         expect(analyzePair().status).toBe('awaiting-pair')
         expect(analyzePair({ series: [stock('AAA', []), { symbol: null }] }).status).toBe('awaiting-pair')
     })
 
     it.each([
-        ['forex', 'ready', 'unsupported'],
+        ['interest', 'ready', 'unsupported'],
         ['equities', 'loading', 'loading'],
         ['equities', 'error', 'error']
     ])('handles %s/%s as %s', (assetClass, status, expected) => {

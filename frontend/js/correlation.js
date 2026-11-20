@@ -147,12 +147,14 @@ export function summarizeObservations({ simultaneous, delayed }, overrides = {})
     }
 }
 
+const CORRELATION_ASSET_CLASSES = new Set(['equities', 'forex', 'comm', 'crypto'])
+
 export function analyzePair({ series = [], timespan = 'max', selectedRange = null, options: overrides = {} } = {}) {
     const options = { ...DEFAULT_CORRELATION_OPTIONS, ...overrides }
     const [a, b] = series
     const result = { a: a?.symbol, b: b?.symbol, options, metrics: null }
     if (!a?.symbol || !b?.symbol) return { ...result, status: 'awaiting-pair' }
-    if ([a, b].some(stock => stock.assetClass !== 'equities')) return { ...result, status: 'unsupported' }
+    if ([a, b].some(instrument => !CORRELATION_ASSET_CLASSES.has(instrument.assetClass))) return { ...result, status: 'unsupported' }
     if ([a, b].some(stock => stock.status === 'loading')) return { ...result, status: 'loading' }
     if ([a, b].some(stock => stock.status === 'error')) return { ...result, status: 'error' }
     if (!validOptions(options)) return { ...result, status: 'invalid-options' }

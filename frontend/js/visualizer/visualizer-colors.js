@@ -4,6 +4,51 @@
 export const MA_COLOR = '#f1c40f'
 export const EMA_COLOR = '#00d2ff'
 
+// Composite each translucent surface over its ancestors before measuring contrast.
+export function compositeColor(foreground, background) {
+    const alpha = foreground.opacity
+    return {
+        r: foreground.r * alpha + background.r * (1 - alpha),
+        g: foreground.g * alpha + background.g * (1 - alpha),
+        b: foreground.b * alpha + background.b * (1 - alpha),
+        opacity: 1
+    }
+}
+
+export function contrastRatio(a, b) {
+    const luminance = color => {
+        const linear = channel => {
+            const value = channel / 255
+            return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+        }
+        return 0.2126 * linear(color.r) + 0.7152 * linear(color.g) + 0.0722 * linear(color.b)
+    }
+    const values = [luminance(a), luminance(b)].sort((x, y) => y - x)
+    return (values[0] + 0.05) / (values[1] + 0.05)
+}
+
+// Move toward the better contrasting endpoint, retaining the series hue as much
+// as possible. Measure rounded RGB values, since those are what SVG renders.
+export function contrastingAxisColor(color, background) {
+    const black = { r: 0, g: 0, b: 0 }
+    const white = { r: 255, g: 255, b: 255 }
+    const target = contrastRatio(black, background) > contrastRatio(white, background) ? black : white
+    const mix = amount => ({
+        r: Math.round(color.r + (target.r - color.r) * amount),
+        g: Math.round(color.g + (target.g - color.g) * amount),
+        b: Math.round(color.b + (target.b - color.b) * amount)
+    })
+    if (contrastRatio(mix(0), background) >= 4.5) return mix(0)
+    let low = 0
+    let high = 1
+    for (let i = 0; i < 16; i++) {
+        const mid = (low + high) / 2
+        if (contrastRatio(mix(mid), background) >= 4.5) high = mid
+        else low = mid
+    }
+    return mix(high)
+}
+
 // Descriptors for two-series mode, indexed by axis position.
 export const SERIES_COLORS = [
     {

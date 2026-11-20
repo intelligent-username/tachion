@@ -197,30 +197,21 @@ export default function CorrelationSection() {
         b?.id, b?.symbol, b?.assetClass, b?.data, b?.status,
         timespan, selectedRange?.start, selectedRange?.end
     ])
-    if (!a?.symbol || !b?.symbol) return null
+    if (!a?.symbol || !b?.symbol || result.status === 'unsupported') return null
 
     const messages = {
-        unsupported: 'Correlation currently supports two equities; select stocks in both slots.',
-        loading: 'Waiting for both stocks’ history…',
-        error: 'Stock history is unavailable. Search again to retry.',
+        loading: 'Waiting for both instruments’ history…',
+        error: 'Instrument history is unavailable. Search again to retry.',
         'invalid-options': 'Correlation settings are invalid.',
         insufficient: `Not enough meaningful moves in this range; widen it to include at least ${result.options.minSamples} observations.`
     }
 
     return (
         <section className="correlation-section" aria-labelledby={headingId} aria-busy={result.status === 'loading'}>
-            <h2 id={headingId} className="correlation-heading">Correlation in this time window</h2>
+            <h2 id={headingId} className="correlation-heading">Correlation</h2>
             {result.status === 'ready'
                 ? <CorrelationResults result={result} />
                 : <p className="correlation-status" role="status">{messages[result.status]}</p>}
-            <p className="correlation-caveat">
-                Historical observations, not forecasts; windows may overlap.
-            </p>
-            {result.status === 'ready' && (
-                <p className="correlation-caveat">
-                    Continuous bars only; source prices may contain unadjusted splits.
-                </p>
-            )}
         </section>
     )
 }
